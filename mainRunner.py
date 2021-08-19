@@ -94,8 +94,8 @@ class MainRunner:
                 self.compressChapter(chapterData)
                 self.insertInDatabase(chapterData)
                 numberOfNewChapters += 1
-                self.filesystem.deleteOriginal(
-                    seriesName=chapterData.seriesName, chapterNumber=chapterData.chapterNumber)
+                self.filesystem.deleteFolder(
+                    location=chapterPathStr)
             else:
                 print(f'Source exists but already in db')
             print("***")
@@ -108,7 +108,7 @@ class MainRunner:
     def findAnilistIdForSeries(self, series: str) -> Optional[str]:
         return self.updateTrackerIds.updateFor(series)
 
-    def setupMetadata(chapter: Chapter):
+    def setupMetadata(self, chapter: Chapter):
         root = ET.Element("ComicInfo")
         ET.SubElement(root, "Series").text = chapter.seriesName
         ET.SubElement(root, "Title").text = chapter.chapterName
@@ -119,7 +119,7 @@ class MainRunner:
         tree.write(destination.resolve(),
                    encoding='utf8', xml_declaration=True)
 
-    def compressChapter(chapter: Chapter):
+    def compressChapter(self, chapter: Chapter):
         destination = chapter.archivePath.resolve()
         ziphandler = zipfile.ZipFile(destination, 'w', zipfile.ZIP_LZMA)
         path = chapter.sourcePath.resolve()

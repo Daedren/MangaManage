@@ -24,7 +24,10 @@ class DatabaseGateway:
         '''
         cur.execute(query, (anilistId,))
         row = cur.fetchone()
-        return row[0]
+        if isinstance(row, list):
+            return row[0]
+        else:
+            return row
 
     def doesExistChapterAndAnilist(self, anilistId, chapterNumber):
         cur = self.__getCursor()

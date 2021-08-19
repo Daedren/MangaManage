@@ -25,9 +25,9 @@ class CheckMissingChaptersInSQL:
             if not chapExistsInSQL:
                 print("File exist in disk, not in SQL")
                 print(file)
-                print("----")
                 if fixAfter:
                     self.__fixChapterTwo(file, chapterNumber, anilistId)
+                print("----")
 
     def __fixChapter(self, filePath, chapterNumber, anilistId):
         seriesName = self.database.getSeriesForAnilist(anilistId)
