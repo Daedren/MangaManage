@@ -32,7 +32,7 @@ class AnilistGateway(TrackerGatewayInterface):
   def getProgressFor(self, mediaId):
       try:
           query = '''
-          query($mediaId: Int) {
+          query($mediaId: Int, $userId: String) {
   MediaList(userId: $userId, mediaId: $mediaId) {
       mediaId,
       progress,
@@ -78,7 +78,7 @@ class AnilistGateway(TrackerGatewayInterface):
 
   def getAllEntries(self):
       query = '''
-      query {
+      query($userId: Int) {
     MediaListCollection(userId: $userId, type: MANGA) {
       lists {
         entries {

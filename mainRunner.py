@@ -69,7 +69,7 @@ class MainRunner:
             seriesName = chapterPath.parent.name
             anilistId = self.database.getAnilistIDForSeries(seriesName)
             chapterNumber = self.calcChapterName.execute(chapterName, anilistId)
-            estimatedArchivePath = Path(self.archivePath).joinpath(
+            estimatedArchivePath = Path(self.archiveFolder).joinpath(
                 f'{anilistId}/{chapterNumber}.cbz')
             chapterData = Chapter(anilistId, seriesName, chapterNumber,
                                   chapterName, chapterPath, estimatedArchivePath)

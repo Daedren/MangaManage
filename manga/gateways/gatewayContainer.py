@@ -16,7 +16,8 @@ class GatewayContainer:
             self.config["manga"]["archivefolder"]
         )
         self.tracker = AnilistGateway(
-            self.config["manga"]["anilisttoken"]
+            self.config["manga"]["anilisttoken"],
+            self.config["manga"]["anilistuserid"],
         )
         self.push = PushoverGateway(
             tokenUser=self.config["push"]["pushoveruserkey"],
