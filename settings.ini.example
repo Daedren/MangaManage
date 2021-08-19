@@ -1,0 +1,12 @@
+[database]
+sqlitelocation = <stuff>
+
+[manga]
+sourcefolder = <stuff>
+archivefolder = <stuff>
+anilisttoken = <stuff>
+anilistuserid = <stuff>
+
+[push]
+pushoveruserkey = <stuff>
+pushoverappkey = <stuff>
