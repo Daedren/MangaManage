@@ -83,7 +83,7 @@ class MainRunner:
                 anilistId, chapterNumber)
             if not anilistId or anilistId is None:
                 foundAnilistId = self.findAnilistIdForSeries(seriesName)
-                if foundAnilistId is None:
+                if not foundAnilistId or foundAnilistId is None:
                     print(f'No anilistId for {chapterData.seriesName}')
                     return
                 chapterData.anilistId = foundAnilistId
