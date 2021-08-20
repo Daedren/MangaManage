@@ -16,7 +16,7 @@ class UpdateTrackerIds:
         self.database = database
         pass
 
-    def tryTuple(self, entry, series, force=False) -> Optional[Tuple[str,str]]:
+    def __tryTuple(self, entry, series, force=False) -> Optional[Tuple[str,str]]:
             allDistancesText = ["","",""]
             edistance = 999
             sdistance = 999
@@ -56,11 +56,14 @@ class UpdateTrackerIds:
         print("Updating for "+series)
         entries = self.anilist.getAllEntries()
         for entry in entries:
-            result = self.tryTuple(entry, series)
+            result = self.__tryTuple(entry, series)
             if result is not None:
                 self.database.insertTracking(result[0], result[1])
                 return result[1]
 
+
+    def manualUpdateFor(self, series, anilistId):
+        self.database.insertTracking(series, anilistId)
 
     def updateAll(self):
         '''Updates all series in DB that don't have tracker IDs'''
@@ -72,7 +75,7 @@ class UpdateTrackerIds:
 
         for entry in entries:
             for row in rows:
-                result = self.tryTuple(entry, row[0])
+                result = self.__tryTuple(entry, row[0])
                 if result is not None:
                     toadd.append(result)
 
