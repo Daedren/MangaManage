@@ -81,7 +81,7 @@ class MainRunner:
 
             isChapterOnDB = self.database.doesExistChapterAndAnilist(
                 anilistId, chapterNumber)
-            if not anilistId:
+            if not anilistId or anilistId is None:
                 foundAnilistId = self.findAnilistIdForSeries(seriesName)
                 if foundAnilistId is None:
                     print(f'No anilistId for {chapterData.seriesName}')

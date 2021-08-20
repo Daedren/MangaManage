@@ -4,7 +4,20 @@ import shutil
 from enum import Enum
 import re
 
-class FilesystemGateway:
+class FilesystemInterface:
+    def deleteArchive(self, anilistId, chapterNumber): pass
+    def deleteFolder(self, location: str): pass
+
+class FilesystemFakeGateway(FilesystemInterface):
+    def deleteArchive(self, anilistId, chapterNumber): pass
+    def deleteFolder(self, location: str):
+        if not os.path.exists(location):
+                print("source chapter doesn't exist")
+                print(location)
+                return
+        print(f'WOULD delete recursive directory at {location}')
+
+class FilesystemGateway(FilesystemInterface):
     def __init__(self, sourceFolder: str, archiveFolder: str) -> None:
         self.mangas = sourceFolder
         self.archiveRootPath = archiveFolder
@@ -35,6 +48,6 @@ class FilesystemGateway:
                 print(location)
                 return
         shutil.rmtree(location)
-        if (os.path.exists(location)) and (not os.listdir(location)):
-                shutil.rmtree(location)
+        #if (os.path.exists(location)) and (not os.listdir(location)):
+        #        shutil.rmtree(location)
     
