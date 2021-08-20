@@ -16,7 +16,7 @@ class UpdateTrackerIds:
         self.database = database
         pass
 
-    def tryTuple(entry, series, force=False) -> Optional[Tuple[str,str]]:
+    def tryTuple(self, entry, series, force=False) -> Optional[Tuple[str,str]]:
             allDistancesText = ["","",""]
             edistance = 999
             sdistance = 999

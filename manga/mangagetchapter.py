@@ -19,7 +19,7 @@ class CalculateChapterName:
         else:
             return num
 
-    def _getNewestFileIn(folder):
+    def _getNewestFileIn(self, folder):
         list_of_files = glob.glob(folder+'/*') # * means all if need specific format then *.csv
         latest_file = max(list_of_files, key=os.path.getctime)
         return Path(latest_file).stem
