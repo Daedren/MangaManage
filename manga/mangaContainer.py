@@ -1,4 +1,4 @@
-from manga.gateways.filesystem import FilesystemGateway
+from manga.gateways.filesystem import FilesystemInterface
 from manga.gateways.anilist import AnilistGateway
 from manga.gateways.database import DatabaseGateway
 from manga.mangagetchapter import CalculateChapterName
@@ -15,7 +15,7 @@ class MangaContainer:
                 config,
                  database: DatabaseGateway,
                  tracker: AnilistGateway,
-                 filesystem: FilesystemGateway) -> None:
+                 filesystem: FilesystemInterface) -> None:
         self.config = config
         self.database = database
         self.tracker = tracker

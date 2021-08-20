@@ -4,7 +4,7 @@ from manga.deleteReadAnilist import DeleteReadChapters
 from manga.missingChapters import CheckGapsInChapters
 from manga.gateways.pushover import PushServiceInterface
 from manga.gateways.database import DatabaseGateway
-from manga.gateways.filesystem import FilesystemGateway
+from manga.gateways.filesystem import FilesystemInterface
 from typing import Optional
 import glob
 import os
@@ -40,7 +40,7 @@ class MainRunner:
                  sourceFolder: str,
                  archiveFolder: str,
                  database: DatabaseGateway,
-                 filesystem: FilesystemGateway,
+                 filesystem: FilesystemInterface,
                  push: PushServiceInterface,
                  missingChapters: CheckGapsInChapters,
                  deleteReadChapters: DeleteReadChapters,
@@ -81,7 +81,7 @@ class MainRunner:
 
             isChapterOnDB = self.database.doesExistChapterAndAnilist(
                 anilistId, chapterNumber)
-            if not anilistId:
+            if not anilistId or anilistId is None:
                 foundAnilistId = self.findAnilistIdForSeries(seriesName)
                 if foundAnilistId is None:
                     print(f'No anilistId for {chapterData.seriesName}')

@@ -1,6 +1,6 @@
 from manga.gateways.utils.databaseModels import AnilistSeries
 from manga.gateways.database import DatabaseGateway
-from manga.gateways.filesystem import FilesystemGateway
+from manga.gateways.filesystem import FilesystemInterface
 from manga.gateways.anilist import AnilistGateway
 import sys; sys.path = [''] + sys.path
 import json
@@ -9,7 +9,7 @@ import math
 
 # Deletes stored manga that has been marked as read on Anilist
 class DeleteReadChapters:
-    def __init__(self, anilist: AnilistGateway, filesystem: FilesystemGateway, database: DatabaseGateway) -> None:
+    def __init__(self, anilist: AnilistGateway, filesystem: FilesystemInterface, database: DatabaseGateway) -> None:
         self.anilist = anilist
         self.filesystem = filesystem
         self.database = database
