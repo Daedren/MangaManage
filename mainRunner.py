@@ -126,7 +126,7 @@ class MainRunner:
 
     def compressChapter(self, chapter: Chapter):
         destination = chapter.archivePath.resolve()
-        ziphandler = zipfile.ZipFile(destination, 'w', zipfile.ZIP_LZMA)
+        ziphandler = zipfile.ZipFile(destination, 'w', zipfile.ZIP_DEFLATED)
         path = chapter.sourcePath.resolve()
         for root, dirs, files in os.walk(path):
             for file in files:
