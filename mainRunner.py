@@ -8,7 +8,6 @@ from manga.gateways.filesystem import FilesystemInterface
 from typing import Optional
 import glob
 import os
-from dependency_injector import containers, providers
 from pathlib import Path
 import xml.etree.ElementTree as ET
 import zipfile

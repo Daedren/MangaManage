@@ -11,11 +11,11 @@ class GatewayContainer:
         self.database = DatabaseGateway(
             self.config["database"]["sqlitelocation"]
         )
-        self.filesystem = FilesystemGateway(
-            self.config["manga"]["sourcefolder"],
-            self.config["manga"]["archivefolder"]
-        )
-        # self.filesystem = FilesystemFakeGateway()
+        #self.filesystem = FilesystemGateway(
+        #    self.config["manga"]["sourcefolder"],
+        #    self.config["manga"]["archivefolder"]
+        #)
+        self.filesystem = FilesystemFakeGateway()
 
         self.tracker = AnilistGateway(
             self.config["manga"]["anilisttoken"],
