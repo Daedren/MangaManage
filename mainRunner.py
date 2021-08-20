@@ -1,4 +1,5 @@
 from manga.updateAnilistIds import UpdateTrackerIds
+import html
 from manga.mangagetchapter import CalculateChapterName
 from manga.deleteReadAnilist import DeleteReadChapters
 from manga.missingChapters import CheckGapsInChapters
@@ -64,8 +65,8 @@ class MainRunner:
             print(chapterPathStr)
             # Inferring information from files
             chapterPath = Path(chapterPathStr)
-            chapterName = chapterPath.name
-            seriesName = chapterPath.parent.name
+            chapterName = html.unescape(chapterPath.name)
+            seriesName = html.unescape(chapterPath.parent.name)
             anilistId = self.database.getAnilistIDForSeries(seriesName)
             chapterNumber = self.calcChapterName.execute(chapterName, anilistId)
             estimatedArchivePath = self.generateArchivePath(anilistId, chapterNumber)
