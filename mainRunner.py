@@ -69,8 +69,7 @@ class MainRunner:
             seriesName = chapterPath.parent.name
             anilistId = self.database.getAnilistIDForSeries(seriesName)
             chapterNumber = self.calcChapterName.execute(chapterName, anilistId)
-            estimatedArchivePath = Path(self.archiveFolder).joinpath(
-                f'{anilistId}/{chapterNumber}.cbz')
+            estimatedArchivePath = self.generateArchivePath(anilistId, chapterNumber)
             chapterData = Chapter(anilistId, seriesName, chapterNumber,
                                   chapterName, chapterPath, estimatedArchivePath)
             print(seriesName)
@@ -83,6 +82,8 @@ class MainRunner:
                 anilistId, chapterNumber)
             if not anilistId or anilistId is None:
                 foundAnilistId = self.findAnilistIdForSeries(seriesName)
+                estimatedArchivePath = self.generateArchivePath(foundAnilistId, chapterNumber)
+                chapterData.archivePath = estimatedArchivePath
                 if not foundAnilistId or foundAnilistId is None:
                     print(f'No anilistId for {chapterData.seriesName}')
                     return
@@ -104,6 +105,10 @@ class MainRunner:
             self.pushNotification.sendPush(
                 f'{numberOfNewChapters} new chapters downloaded')
         self.deleteReadChapters.execute()
+    
+    def generateArchivePath(self, anilistId, chapterNumber):
+        return Path(self.archiveFolder).joinpath(
+                f'{anilistId}/{chapterNumber}.cbz')
 
     def findAnilistIdForSeries(self, series: str) -> Optional[str]:
         return self.updateTrackerIds.updateFor(series)
