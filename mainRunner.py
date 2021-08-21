@@ -101,7 +101,9 @@ class MainRunner:
                 print(f'Source exists but already in db')
             print("***")
         if numberOfNewChapters > 0:
-            self.missingChapters.getGapsFromChaptersSince(dateScriptStart)
+            print("Chapter gaps ---")
+            print(self.missingChapters.getGapsFromChaptersSince(dateScriptStart))
+            print("---")
             self.pushNotification.sendPush(
                 f'{numberOfNewChapters} new chapters downloaded')
         self.deleteReadChapters.execute()

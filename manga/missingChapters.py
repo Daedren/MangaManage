@@ -19,11 +19,13 @@ class CheckGapsInChapters:
     def getGapsFromChaptersSince(self, date: datetime) -> str:
         dbresult = self.database.getLowestChapterForSeriesUpdatedSinceDate(date)
         toReturn = ''
+        trackerData = self.anilist.getAllEntries()
+        trackerMapData = dict((v["media"]["id"], v) for v in trackerData)
         for row in dbresult:
-            realProgress = self.anilist.getProgressFor(row[2])
+            realProgress = trackerMapData[row[2]]["progress"]
             if realProgress is None:
-                toReturn += "no progress in Anilist for %s \\n" % row[2]
+                toReturn += "no progress in Anilist for %s \n" % row[2]
                 return
             if (float(realProgress)+1.0 < float(row[0])):
-                toReturn += '{} - Last read at {}, but only {} is in DB \\n'.format(row[1], realProgress, row[0])
+                toReturn += '{} - Last read at {}, but only {} is in DB \n'.format(row[1], realProgress, row[0])
         return toReturn
