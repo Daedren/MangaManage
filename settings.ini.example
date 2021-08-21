@@ -4,7 +4,7 @@ sqlitelocation = <stuff>
 [manga]
 sourcefolder = <stuff>
 archivefolder = <stuff>
-anilisttoken = <stuff>
+anilisttoken = Bearer <token>
 anilistuserid = <stuff>
 
 [push]

@@ -24,7 +24,7 @@ class FilesystemFakeGateway(FilesystemInterface):
 class FilesystemGateway(FilesystemInterface):
     def __init__(self, sourceFolder: str, archiveFolder: str) -> None:
         self.mangas = sourceFolder
-        self.archiveRootPath = archiveFolder
+        self.archiveRootPath = Path(archiveFolder)
         super().__init__()
 
     def deleteArchive(self, anilistId, chapterNumber):
