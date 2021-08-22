@@ -40,3 +40,8 @@ class TestCalculateChapterName(unittest.TestCase):
         stub = [35.0, 36.0]
         result = self.sut._CheckGapsInChapters__gapExistsInTrackerProgress(38, stub)
         self.assertFalse(result)
+
+    def test_gapExistsInTrackerProgress_34prog35min_True(self):
+        stub = [35.0, 36.0]
+        result = self.sut._CheckGapsInChapters__gapExistsInTrackerProgress(34, stub)
+        self.assertFalse(result)

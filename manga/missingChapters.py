@@ -1,3 +1,4 @@
+from typing import Optional
 import datetime
 from manga.gateways.anilist import AnilistGateway
 from manga.gateways.database import DatabaseGateway
@@ -40,19 +41,21 @@ class CheckGapsInChapters:
             rowData = row[1]
             realProgress = trackerMapData[rowAnilistId]["progress"]
             if realProgress is None:
-                self.logger.debug("no progress in Anilist for %s \n" % row[2])
+                self.logger.debug("no progress in Anilist for %s \n" % row[0])
                 return
+
+            titles = trackerMapData[rowAnilistId]["media"]["title"]
 
             allChapters = list(map(lambda x: float(x[0]), rowData))
             if self.__gapExistsInTrackerProgress(realProgress, allChapters):
                 self.logger.debug(
-                    '{} - Last read at {}, but only {} is in DB'.format(row[1], realProgress, row[0]))
+                    '{} - Last read at {}, but only {} is in DB'.format(titles, realProgress, min(allChapters)))
                 newQuarantineAnilist.append(rowAnilistId)
                 newQuarantineList.append(row)
+                continue
                 
-            noGapsInChapters = self.__checkConsecutive(allChapters)
+            noGapsInChapters = self.__checkConsecutive(allChapters, titlesForLogging=titles)
             if not noGapsInChapters:
-                self.logger.debug(f"in {rowAnilistId}")
                 newQuarantineAnilist.append(rowAnilistId)
                 newQuarantineList.append(row)
 
@@ -71,18 +74,19 @@ class CheckGapsInChapters:
             self.filesystem.restoreQuarantinedArchive(anilistId)
         return
         
-    def __checkConsecutive(self, l: list) -> bool:
+    def __checkConsecutive(self, l: list, titlesForLogging: Optional[str] = None) -> bool:
         sortedChapters = sorted(l)
         lastChapter = None
         for chap in sortedChapters:
             if lastChapter is None:
                 lastChapter = chap
             elif (chap - lastChapter) > 1:
-                self.logger.debug(f'Gap between {lastChapter} and {chap}')
+                if titlesForLogging is not None:
+                    self.logger.debug(f'{titlesForLogging} - Gap between {lastChapter} and {chap}')
                 return False
             else:
                 lastChapter = chap
         return True
 
     def __gapExistsInTrackerProgress(self, trackerProgress: int, chapters: list) -> bool:
-        return (trackerProgress - min(chapters)) < 1
+        return (trackerProgress - min(chapters)) < -1
