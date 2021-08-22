@@ -1,4 +1,6 @@
 import argparse
+import os
+import logging
 from manga.updateAnilistIds import UpdateTrackerIds
 from manga.missingChapters import CheckGapsInChapters
 from mainRunner import MainRunner
@@ -30,7 +32,7 @@ def main(mainRunner: MainRunner,
 
     if args.checkMissingChapters:
         date = datetime.datetime.utcfromtimestamp(0)
-        print(checkMissingChapters.getGapsFromChaptersSince(date))
+        checkMissingChapters.getGapsFromChaptersSince(date)
         return
 
     if args.updateIds:
@@ -51,6 +53,8 @@ if __name__ == '__main__':
 
     assert config is not None
     assert config["manga"]["sourcefolder"] is not None
+
+    logging.basicConfig(level=config["system"]["loglevel"])
     application = ApplicationContainer(config)
     main(application.mainRunner,
          application.manga.checkMissingSQL,

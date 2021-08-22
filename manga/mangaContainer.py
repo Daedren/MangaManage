@@ -39,5 +39,6 @@ class MangaContainer:
                                                      )
 
         self.checkGapsInChapters = CheckGapsInChapters(self.database,
+                                                       self.filesystem,
                                                        self.tracker)
         pass

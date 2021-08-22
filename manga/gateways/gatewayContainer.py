@@ -1,5 +1,6 @@
 
 from .anilist import AnilistGateway
+from .anilistFake import FakeAnilistGateway
 from .database import DatabaseGateway
 from .pushover import PushoverGateway
 from .filesystem import FilesystemFakeGateway, FilesystemGateway
@@ -13,7 +14,8 @@ class GatewayContainer:
         )
         self.filesystem = FilesystemGateway(
             self.config["manga"]["sourcefolder"],
-            self.config["manga"]["archivefolder"]
+            self.config["manga"]["archivefolder"],
+            self.config["manga"]["quarantinefolder"]
         )
         #self.filesystem = FilesystemFakeGateway()
 
@@ -21,6 +23,8 @@ class GatewayContainer:
             self.config["manga"]["anilisttoken"],
             self.config["manga"]["anilistuserid"],
         )
+        #self.tracker = FakeAnilistGateway()
+
         self.push = PushoverGateway(
             tokenUser=self.config["push"]["pushoveruserkey"],
             tokenApp=self.config["push"]["pushoverappkey"],

@@ -12,6 +12,19 @@ class DatabaseGateway:
     def __getCursor(self):
         cur = self.conn.cursor()
         return cur
+        
+    def getAllChapters(self):
+        cur = self.__getCursor()
+        query = '''
+        SELECT chapter, anilistId, creation_date
+        FROM manga
+        INNER JOIN anilist
+        ON manga.series = anilist.series
+        '''
+        cur.execute(query)
+        rows = cur.fetchall()
+        return rows
+        
 
     def getSeriesForAnilist(self, anilistId):
         cur = self.__getCursor()
@@ -135,18 +148,14 @@ class DatabaseGateway:
         else:
             return None
 
-    def getLowestChapterForSeriesUpdatedSinceDate(self, date: datetime):
+    def getLowestChapterAndLastUpdatedForSeries(self):
         cur = self.__getCursor()
         cur.execute('''
-            SELECT MIN(CAST(chapter AS INT)), a.series, anilistId
-            FROM manga a
-            INNER JOIN anilist b
-            ON a.series = b.series
-                WHERE a.series IN (
-                SELECT DISTINCT series
-                FROM manga
-                WHERE creation_date > ?
-            )
-            GROUP BY a.series
-                        ''', (date,))
+        SELECT MIN(CAST(a.chapter AS INT)), a.series, anilistId, MAX(a.creation_date)
+        FROM manga a
+        INNER JOIN anilist AS b
+        ON a.series = b.series
+        GROUP BY anilistId
+                        ''')
+        # HAVING MAX(a.creation_date) > ?
         return cur.fetchall()

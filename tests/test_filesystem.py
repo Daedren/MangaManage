@@ -7,7 +7,7 @@ from manga.gateways.filesystem import FilesystemGateway
 class TestFilesystemGateway(unittest.TestCase):
     def setUp(self) -> None:
         '''Creates two series with one chapter each for basic tests'''
-        self.sut = FilesystemGateway(sourceFolder='', archiveFolder='')
+        self.sut = FilesystemGateway(sourceFolder='', archiveFolder='', quarantineFolder='')
         self.series1 = "/tmp/fstest/seriesone"
         self.series1Path = Path(self.series1)
         self.series1chapter1 = "/tmp/fstest/seriesone/chapterone"
@@ -60,3 +60,8 @@ class TestFilesystemGateway(unittest.TestCase):
         assert series1chapter2Path.exists()
 
         return
+    
+    def test_deleteArchive_normal_delete(self):
+        chapter = '54'
+        anilistId = 98563
+        self.sut.deleteArchive(anilistId, chapter)
