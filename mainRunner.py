@@ -146,6 +146,3 @@ class MainRunner:
             chapter.chapterNumber,
             str(chapter.archivePath.resolve()),
             str(chapter.sourcePath.resolve()))
-
-    if __name__ == "__main__":
-        print(execute())

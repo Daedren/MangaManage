@@ -62,6 +62,7 @@ class CheckGapsInChapters:
         self.__checkQuarantines(newQuarantineAnilist)
         toQuarantine = self.__getOnlyNewQuarantines(self.filesystem.getQuarantinedSeries(), newQuarantineAnilist)
         for anilistId in toQuarantine:
+            self.logger.debug(f"Adding {anilistId} to quarantine")
             self.filesystem.quarantineSeries(anilistId=anilistId)
 
         #limitedByDate = filter(lambda x: x[3] > datetime, newQuarantineList)
@@ -72,22 +73,21 @@ class CheckGapsInChapters:
         quarantinedSeries = self.filesystem.getQuarantinedSeries()
         noLongerQuarantined = self.__getNoLongerQuarantined(quarantinedSeries, newQuarantineList)
         for anilistId in noLongerQuarantined:
+            self.logger.debug(f"Removing {anilistId} from quarantine")
             self.filesystem.restoreQuarantinedArchive(anilistId)
         return
         
     def __checkConsecutive(self, l: list, titlesForLogging: Optional[str] = None) -> bool:
         sortedChapters = sorted(l)
         lastChapter = None
+        found_gap = False
         for chap in sortedChapters:
-            if lastChapter is None:
-                lastChapter = chap
-            elif (chap - lastChapter) > 1:
+            if (lastChapter is not None) and ((chap - lastChapter) > 1):
+                found_gap = True
                 if titlesForLogging is not None:
                     self.logger.debug(f'{titlesForLogging} - Gap between {lastChapter} and {chap}')
-                return False
-            else:
-                lastChapter = chap
-        return True
+            lastChapter = chap
+        return not found_gap
 
     def __gapExistsInTrackerProgress(self, trackerProgress: int, chapters: list) -> bool:
         return (trackerProgress - min(chapters)) < -1
