@@ -82,7 +82,7 @@ class CheckGapsInChapters:
         lastChapter = None
         found_gap = False
         for chap in sortedChapters:
-            if (lastChapter is not None) and ((chap - lastChapter) > 1):
+            if (lastChapter is not None) and (round(chap - lastChapter, 1) > 1.1):
                 found_gap = True
                 if titlesForLogging is not None:
                     self.logger.debug(f'{titlesForLogging} - Gap between {lastChapter} and {chap}')
@@ -90,7 +90,7 @@ class CheckGapsInChapters:
         return not found_gap
 
     def __gapExistsInTrackerProgress(self, trackerProgress: int, chapters: list) -> bool:
-        return (trackerProgress - min(chapters)) < -1
+        return round(trackerProgress - min(chapters), 1) < -1.1
     
     def __getNoLongerQuarantined(self, oldList: List[int], newList: List[int]) -> List[int]:
         return list(set(oldList) - set(newList))
