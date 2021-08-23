@@ -45,3 +45,25 @@ class TestCalculateChapterName(unittest.TestCase):
         stub = [35.0, 36.0]
         result = self.sut._CheckGapsInChapters__gapExistsInTrackerProgress(34, stub)
         self.assertFalse(result)
+
+    def test_checkQuarantines_oneNoLongerQ_KeepEverythingElse(self):
+        alreadyQuarantined = [1234, 3245]
+        newQuarantine = [1234]
+        result = self.sut._CheckGapsInChapters__getNoLongerQuarantined(alreadyQuarantined, newQuarantine)
+        self.assertEqual(result, [3245])
+
+    def test_checkQuarantines_newQ_ignoreItReturnOthers(self):
+        '''New quarantines aren't dealt with here.
+        We just want to see who we can unquarantine'''
+        alreadyQuarantined = [1234]
+        newQuarantine = [1234, 3245]
+        result = self.sut._CheckGapsInChapters__getNoLongerQuarantined(alreadyQuarantined, newQuarantine)
+        self.assertEqual(result, [])
+
+    def test_checkQuarantines_sameAsLast_returnSame(self):
+        '''Since we only want those to unquarantine, this must
+        return empty'''
+        alreadyQuarantined = [3245, 1234]
+        newQuarantine = [1234, 3245]
+        result = self.sut._CheckGapsInChapters__getNoLongerQuarantined(alreadyQuarantined, newQuarantine)
+        self.assertEqual(result, [])

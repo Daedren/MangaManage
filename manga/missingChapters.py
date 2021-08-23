@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 import datetime
 from manga.gateways.anilist import AnilistGateway
 from manga.gateways.database import DatabaseGateway
@@ -69,7 +69,7 @@ class CheckGapsInChapters:
     def __checkQuarantines(self, newQuarantineList: list):
         '''If a series isn't listed in the updated quarantine list. Remove it '''
         quarantinedSeries = self.filesystem.getQuarantinedSeries()
-        noLongerQuarantined = list(set(quarantinedSeries) - set(newQuarantineList))
+        noLongerQuarantined = self.__getNoLongerQuarantined(quarantinedSeries, newQuarantineList)
         for anilistId in noLongerQuarantined:
             self.filesystem.restoreQuarantinedArchive(anilistId)
         return
@@ -90,3 +90,6 @@ class CheckGapsInChapters:
 
     def __gapExistsInTrackerProgress(self, trackerProgress: int, chapters: list) -> bool:
         return (trackerProgress - min(chapters)) < -1
+    
+    def __getNoLongerQuarantined(self, oldList: List[int], newList: List[int]) -> List[int]:
+        return list(set(oldList) - set(newList))

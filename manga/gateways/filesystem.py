@@ -98,6 +98,6 @@ class FilesystemGateway(FilesystemInterface):
     
     def getQuarantinedSeries(self):
         quarantinedSeries = self.quarantineFolder.iterdir()
-        trackerIds = list(map(lambda x: str(x.stem), quarantinedSeries))
+        trackerIds = list(map(lambda x: int(x.stem), quarantinedSeries))
         return trackerIds
     
