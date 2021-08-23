@@ -9,7 +9,7 @@ import os
 
 @Logger
 class CheckGapsInChapters:
-    '''Checks if we are missing chapters to read (e.g. Anilist last read is Ch.30, but we only have starting from Ch.34
+    '''Checks if we are missing chapters to read (e.g. Anilist last read is Ch.30, but we only have starting from Ch.34)
        Chapters with gaps are quarantined until the gap is filled. This allows you to read the archive with confidence.
     '''
     dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -60,7 +60,8 @@ class CheckGapsInChapters:
                 newQuarantineList.append(row)
 
         self.__checkQuarantines(newQuarantineAnilist)
-        for anilistId in newQuarantineAnilist:
+        toQuarantine = self.__getOnlyNewQuarantines(self.filesystem.getQuarantinedSeries(), newQuarantineAnilist)
+        for anilistId in toQuarantine:
             self.filesystem.quarantineSeries(anilistId=anilistId)
 
         #limitedByDate = filter(lambda x: x[3] > datetime, newQuarantineList)
@@ -93,3 +94,6 @@ class CheckGapsInChapters:
     
     def __getNoLongerQuarantined(self, oldList: List[int], newList: List[int]) -> List[int]:
         return list(set(oldList) - set(newList))
+
+    def __getOnlyNewQuarantines(self, alreadyQuarantined: List[int], newQuarantines: List[int]) -> List[int]:
+        return list(set(newQuarantines) - set(alreadyQuarantined))

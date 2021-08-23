@@ -46,13 +46,13 @@ class TestCalculateChapterName(unittest.TestCase):
         result = self.sut._CheckGapsInChapters__gapExistsInTrackerProgress(34, stub)
         self.assertFalse(result)
 
-    def test_checkQuarantines_oneNoLongerQ_KeepEverythingElse(self):
+    def test_getNoLongerQuarantined_oneNoLongerQ_KeepEverythingElse(self):
         alreadyQuarantined = [1234, 3245]
         newQuarantine = [1234]
         result = self.sut._CheckGapsInChapters__getNoLongerQuarantined(alreadyQuarantined, newQuarantine)
         self.assertEqual(result, [3245])
 
-    def test_checkQuarantines_newQ_ignoreItReturnOthers(self):
+    def test_getNoLongerQuarantined_newQ_ignoreItReturnOthers(self):
         '''New quarantines aren't dealt with here.
         We just want to see who we can unquarantine'''
         alreadyQuarantined = [1234]
@@ -60,10 +60,28 @@ class TestCalculateChapterName(unittest.TestCase):
         result = self.sut._CheckGapsInChapters__getNoLongerQuarantined(alreadyQuarantined, newQuarantine)
         self.assertEqual(result, [])
 
-    def test_checkQuarantines_sameAsLast_returnSame(self):
+    def test_getNoLongerQuarantined_sameAsLast_returnSame(self):
         '''Since we only want those to unquarantine, this must
         return empty'''
         alreadyQuarantined = [3245, 1234]
         newQuarantine = [1234, 3245]
         result = self.sut._CheckGapsInChapters__getNoLongerQuarantined(alreadyQuarantined, newQuarantine)
+        self.assertEqual(result, [])
+
+    def test_getOnlyNewQuarantines_oneNoLongerQ_KeepEverythingElse(self):
+        alreadyQuarantined = [1234, 3245]
+        newQuarantine = [1234]
+        result = self.sut._CheckGapsInChapters__getOnlyNewQuarantines(alreadyQuarantined, newQuarantine)
+        self.assertEqual(result, [])
+
+    def test_getOnlyNewQuarantines__newQ_ignoreItReturnOthers(self):
+        alreadyQuarantined = [1234]
+        newQuarantine = [1234, 3245]
+        result = self.sut._CheckGapsInChapters__getOnlyNewQuarantines(alreadyQuarantined, newQuarantine)
+        self.assertEqual(result, [3245])
+
+    def test_getOnlyNewQuarantines_sameAsLast_returnSame(self):
+        alreadyQuarantined = [3245, 1234]
+        newQuarantine = [1234, 3245]
+        result = self.sut._CheckGapsInChapters__getOnlyNewQuarantines(alreadyQuarantined, newQuarantine)
         self.assertEqual(result, [])
