@@ -4,9 +4,13 @@ sqlitelocation = <stuff>
 [manga]
 sourcefolder = <stuff>
 archivefolder = <stuff>
+quarantinefolder = <stuff>
 anilisttoken = Bearer <token>
 anilistuserid = <stuff>
 
 [push]
 pushoveruserkey = <stuff>
 pushoverappkey = <stuff>
+
+[system]
+loglevel = DEBUG
