@@ -12,6 +12,7 @@ class FilesystemInterface:
     def quarantineSeries(self, anilistId: str): pass
     def restoreQuarantinedArchive(self, anilistId: str): pass
     def getQuarantinedSeries(self): pass
+    def saveFile(self, stringData: str, filepath: Path): pass
 
 class FilesystemFakeGateway(FilesystemInterface):
     def deleteArchive(self, anilistId, chapterNumber): pass
@@ -100,4 +101,8 @@ class FilesystemGateway(FilesystemInterface):
         quarantinedSeries = self.quarantineFolder.iterdir()
         trackerIds = list(map(lambda x: int(x.stem), quarantinedSeries))
         return trackerIds
+    
+    def saveFile(self, stringData: str, filepath: Path):
+        with open(filepath.resolve(), 'wb') as file:
+            file.write(stringData)
     

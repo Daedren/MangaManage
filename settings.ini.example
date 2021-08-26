@@ -14,3 +14,5 @@ pushoverappkey = <stuff>
 
 [system]
 loglevel = DEBUG
+; lxml or ElementTree
+xmlParser = lxml

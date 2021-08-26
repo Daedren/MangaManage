@@ -93,6 +93,7 @@ class AnilistGateway(TrackerGatewayInterface):
     media {
       id
       synonyms
+      countryOfOrigin
       title {
         romaji
         english

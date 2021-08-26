@@ -4,6 +4,8 @@ from manga.gateways.database import DatabaseGateway
 from manga.mangagetchapter import CalculateChapterName
 from manga.updateAnilistIds import UpdateTrackerIds
 from manga.missingChapters import CheckGapsInChapters
+from manga.createMetadata import CreateMetadata
+from manga.createMetadata2 import CreateMetadata2
 from manga.deleteReadAnilist import DeleteReadChapters
 from manga.checkMissingSQL import CheckMissingChaptersInSQL
 from manga.gateways.gatewayContainer import GatewayContainer
@@ -25,6 +27,16 @@ class MangaContainer:
                                                          self.config["manga"]["sourcefolder"],
                                                          self.config["manga"]["archivefolder"]
                                                          )
+        
+        parser = self.config["system"]["xmlParser"] 
+        if parser == "lxml":
+            self.createMetadata = CreateMetadata2(
+                filesystem=self.filesystem
+            )
+        elif parser == "ElementTree":
+            self.createMetadata = CreateMetadata(
+                filesystem=self.filesystem
+            )
 
         self.updateTrackerIds = UpdateTrackerIds(
             self.database,

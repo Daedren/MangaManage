@@ -21,6 +21,7 @@ class ApplicationContainer():
             self.manga.checkGapsInChapters,
             self.manga.deleteReadChapters,
             self.manga.calculateChapterName,
-            self.manga.updateTrackerIds
+            self.manga.updateTrackerIds,
+            self.manga.createMetadata
         )
         pass

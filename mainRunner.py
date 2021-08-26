@@ -3,9 +3,11 @@ import html
 from manga.mangagetchapter import CalculateChapterName
 from manga.deleteReadAnilist import DeleteReadChapters
 from manga.missingChapters import CheckGapsInChapters
+from manga.createMetadata import CreateMetadataInterface
 from manga.gateways.pushover import PushServiceInterface
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.filesystem import FilesystemInterface
+from manga.models.chapter import Chapter
 from typing import Optional
 import glob
 import os
@@ -18,23 +20,6 @@ import datetime
 # databas -> select anilist id where series=x
 # getChapter -> title
 
-
-class Chapter:
-    def __init__(self,
-                 anilistId: int,
-                 seriesName: str,
-                 chapterNumber: str,
-                 chapterName: str,
-                 sourcePath: Path,
-                 archivePath: Path):
-        self.anilistId = anilistId
-        self.seriesName = seriesName
-        self.chapterNumber = chapterNumber
-        self.chapterName = chapterName
-        self.sourcePath = sourcePath
-        self.archivePath = archivePath
-
-
 class MainRunner:
     def __init__(self,
                  sourceFolder: str,
@@ -45,7 +30,8 @@ class MainRunner:
                  missingChapters: CheckGapsInChapters,
                  deleteReadChapters: DeleteReadChapters,
                  calcChapterName: CalculateChapterName,
-                 updateTrackerIds: UpdateTrackerIds
+                 updateTrackerIds: UpdateTrackerIds,
+                 createMetadata: CreateMetadataInterface,
                  ) -> None:
         self.database = database
         self.pushNotification = push
@@ -56,6 +42,7 @@ class MainRunner:
         self.deleteReadChapters = deleteReadChapters
         self.calcChapterName = calcChapterName
         self.updateTrackerIds = updateTrackerIds
+        self.createMetadata = createMetadata
 
     def execute(self):
         numberOfNewChapters = 0
@@ -116,15 +103,7 @@ class MainRunner:
         return self.updateTrackerIds.updateFor(series)
 
     def setupMetadata(self, chapter: Chapter):
-        root = ET.Element("ComicInfo")
-        ET.SubElement(root, "Series").text = chapter.seriesName
-        ET.SubElement(root, "Title").text = chapter.chapterName
-        ET.SubElement(root, "Number").text = chapter.chapterNumber
-        ET.SubElement(root, "Manga").text = "YesAndRightToLeft"
-        tree = ET.ElementTree(root)
-        destination = chapter.sourcePath.joinpath('ComicInfo.xml')
-        tree.write(destination.resolve(),
-                   encoding='utf8', xml_declaration=True)
+        self.createMetadata.execute(chapter)
 
     def compressChapter(self, chapter: Chapter):
         destination = chapter.archivePath.resolve()
@@ -136,8 +115,6 @@ class MainRunner:
                     continue
                 ziphandler.write(os.path.join(root, file),
                                  file)
-                #os.path.relpath(os.path.join(root, file),
-                #                os.path.join(path, '..')))
         ziphandler.close()
 
     def insertInDatabase(self, chapter: Chapter):

@@ -8,3 +8,9 @@ Helps managing stuff downloaded from Tachiyomi
 - Quarantines (Moves it to a different folder) comics when there's missing chapters to avoid reading it by accident. They're moved back when the problem is fixed.
   - When there's a gap in downloaded chapters (e.g. 35 skips directly to 38)
   - When the first available chapter isn't the one right after the last one you read (Anilist says last read is 30, first available is 32)
+
+# Dependencies
+- lxml
+  - There's a working alternative implementation with just the standard Python xml package, it simply isn't covered by tests due to limitations of the library. Set the appropriate setting in Settings.ini to use it.
+- nose
+  - Helps with running the tests

@@ -48,7 +48,7 @@ def main(mainRunner: MainRunner,
 
 
 if __name__ == '__main__':
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(allow_no_value=True)
     config.read('settings.ini')
 
     assert config is not None
