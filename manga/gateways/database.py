@@ -2,16 +2,20 @@ from datetime import datetime
 import sqlite3
 from typing import List
 from .utils.databaseModels import AnilistSeries
+from .databaseMigrations import DatabaseMigrations
 
 
 class DatabaseGateway:
     def __init__(self, databaseLocation: str) -> None:
         self.conn = sqlite3.connect(databaseLocation)
+        self.migrations = DatabaseMigrations()
+        self.migrations.doMigrations(self.conn)
         super().__init__()
 
     def __getCursor(self):
         cur = self.conn.cursor()
         return cur
+        
         
     def getAllChapters(self):
         cur = self.__getCursor()
