@@ -1,6 +1,6 @@
 stubs/
 settings.ini
-archive/
+/archive/
 sources/
 old/
 *.db
