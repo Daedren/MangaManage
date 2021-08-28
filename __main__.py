@@ -1,5 +1,4 @@
 import argparse
-import os
 import logging
 from manga.updateAnilistIds import UpdateTrackerIds
 from manga.missingChapters import CheckGapsInChapters
@@ -20,7 +19,8 @@ def main(mainRunner: MainRunner,
     parser.add_argument('--checkMissingSQL', action='store_true')
     parser.add_argument('--checkMissingChapters', action='store_true')
     parser.add_argument('--updateIds', action='store', type=str, nargs=2,
-                        help='Updates tracker ID in DB for series. Usage: --updateIds <series> <anilistId>')
+                        help='''Updates tracker ID in DB for series.
+                        Usage: --updateIds <series> <anilistId>''')
     parser.add_argument('--force', action='store_true')
 
     args = parser.parse_args()
@@ -41,7 +41,6 @@ def main(mainRunner: MainRunner,
         else:
             print("Invalid number of arguments")
         return
-
 
     mainRunner.execute()
     return

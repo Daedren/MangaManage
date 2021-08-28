@@ -12,7 +12,6 @@ from typing import Optional
 import glob
 import os
 from pathlib import Path
-import xml.etree.ElementTree as ET
 import zipfile
 import datetime
 
@@ -20,19 +19,21 @@ import datetime
 # databas -> select anilist id where series=x
 # getChapter -> title
 
+
 class MainRunner:
-    def __init__(self,
-                 sourceFolder: str,
-                 archiveFolder: str,
-                 database: DatabaseGateway,
-                 filesystem: FilesystemInterface,
-                 push: PushServiceInterface,
-                 missingChapters: CheckGapsInChapters,
-                 deleteReadChapters: DeleteReadChapters,
-                 calcChapterName: CalculateChapterName,
-                 updateTrackerIds: UpdateTrackerIds,
-                 createMetadata: CreateMetadataInterface,
-                 ) -> None:
+    def __init__(
+        self,
+        sourceFolder: str,
+        archiveFolder: str,
+        database: DatabaseGateway,
+        filesystem: FilesystemInterface,
+        push: PushServiceInterface,
+        missingChapters: CheckGapsInChapters,
+        deleteReadChapters: DeleteReadChapters,
+        calcChapterName: CalculateChapterName,
+        updateTrackerIds: UpdateTrackerIds,
+        createMetadata: CreateMetadataInterface,
+    ) -> None:
         self.database = database
         self.pushNotification = push
         self.filesystem = filesystem
@@ -48,7 +49,7 @@ class MainRunner:
         numberOfNewChapters = 0
         dateScriptStart = datetime.datetime.now()
         # Globs chapters
-        for chapterPathStr in glob.iglob(f'{self.sourceFolder}/*/*/*'):
+        for chapterPathStr in glob.iglob(f"{self.sourceFolder}/*/*/*"):
             print(chapterPathStr)
             # Inferring information from files
             chapterPath = Path(chapterPathStr)
@@ -57,8 +58,14 @@ class MainRunner:
             anilistId = self.database.getAnilistIDForSeries(seriesName)
             chapterNumber = self.calcChapterName.execute(chapterName, anilistId)
             estimatedArchivePath = self.generateArchivePath(anilistId, chapterNumber)
-            chapterData = Chapter(anilistId, seriesName, chapterNumber,
-                                  chapterName, chapterPath, estimatedArchivePath)
+            chapterData = Chapter(
+                anilistId,
+                seriesName,
+                chapterNumber,
+                chapterName,
+                chapterPath,
+                estimatedArchivePath,
+            )
             print(seriesName)
             print(chapterName)
             print(anilistId)
@@ -66,38 +73,39 @@ class MainRunner:
             print(estimatedArchivePath)
 
             isChapterOnDB = self.database.doesExistChapterAndAnilist(
-                anilistId, chapterNumber)
+                anilistId, chapterNumber
+            )
             if not anilistId or anilistId is None:
                 foundAnilistId = self.findAnilistIdForSeries(seriesName)
-                estimatedArchivePath = self.generateArchivePath(foundAnilistId, chapterNumber)
+                estimatedArchivePath = self.generateArchivePath(
+                    foundAnilistId, chapterNumber
+                )
                 chapterData.archivePath = estimatedArchivePath
                 if not foundAnilistId or foundAnilistId is None:
-                    print(f'No anilistId for {chapterData.seriesName}')
+                    print(f"No anilistId for {chapterData.seriesName}")
                     return
                 chapterData.anilistId = foundAnilistId
             if not isChapterOnDB:
-                chapterData.archivePath.parent.mkdir(
-                    parents=True, exist_ok=True)
+                chapterData.archivePath.parent.mkdir(parents=True, exist_ok=True)
                 self.setupMetadata(chapterData)
                 self.compressChapter(chapterData)
                 self.insertInDatabase(chapterData)
                 numberOfNewChapters += 1
-                self.filesystem.deleteFolder(
-                    location=chapterPathStr)
+                self.filesystem.deleteFolder(location=chapterPathStr)
             else:
-                print(f'Source exists but already in db')
+                print("Source exists but already in db")
             print("***")
         if numberOfNewChapters > 0:
             print("Chapter gaps ---")
             print(self.missingChapters.getGapsFromChaptersSince(dateScriptStart))
             print("---")
             self.pushNotification.sendPush(
-                f'{numberOfNewChapters} new chapters downloaded')
+                f"{numberOfNewChapters} new chapters downloaded"
+            )
         self.deleteReadChapters.execute()
-    
+
     def generateArchivePath(self, anilistId, chapterNumber):
-        return Path(self.archiveFolder).joinpath(
-                f'{anilistId}/{chapterNumber}.cbz')
+        return Path(self.archiveFolder).joinpath(f"{anilistId}/{chapterNumber}.cbz")
 
     def findAnilistIdForSeries(self, series: str) -> Optional[str]:
         return self.updateTrackerIds.updateFor(series)
@@ -107,14 +115,13 @@ class MainRunner:
 
     def compressChapter(self, chapter: Chapter):
         destination = chapter.archivePath.resolve()
-        ziphandler = zipfile.ZipFile(destination, 'w', zipfile.ZIP_DEFLATED)
+        ziphandler = zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED)
         path = chapter.sourcePath.resolve()
         for root, dirs, files in os.walk(path):
             for file in files:
-                if file.startswith('.'):
+                if file.startswith("."):
                     continue
-                ziphandler.write(os.path.join(root, file),
-                                 file)
+                ziphandler.write(os.path.join(root, file), file)
         ziphandler.close()
 
     def insertInDatabase(self, chapter: Chapter):
@@ -122,4 +129,5 @@ class MainRunner:
             chapter.seriesName,
             chapter.chapterNumber,
             str(chapter.archivePath.resolve()),
-            str(chapter.sourcePath.resolve()))
+            str(chapter.sourcePath.resolve()),
+        )
