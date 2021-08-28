@@ -4,7 +4,7 @@ import sqlite3
 
 class TestFilesystemGateway(unittest.TestCase):
     def setUp(self) -> None:
-        self.fakeDb = sqlite3.connect("file::memory:?cache=shared")
+        self.fakeDb = sqlite3.connect(":memory:")
         self.sut = DatabaseMigrations()
         
     def test_version0to1_success(self):
