@@ -11,7 +11,8 @@ class ApplicationContainer():
         self.manga = MangaContainer(self.config,
                                     self.gateways.database,
                                     self.gateways.tracker,
-                                    self.gateways.filesystem)
+                                    self.gateways.filesystem,
+                                    self.gateways.mangaUpdates)
         self.mainRunner = MainRunner(
             self.config["manga"]["sourcefolder"],
             self.config["manga"]["archivefolder"],

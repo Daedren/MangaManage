@@ -1,4 +1,4 @@
 FROM alpine:3.14
 RUN apk update \
-&& apk add libwebp-tools sqlite python3 bash py3-pip vim zip curl
+&& apk add libwebp-tools sqlite python3 bash py3-pip vim zip curl g++ libxml2-dev libxslt-dev
 ENTRYPOINT ["/bin/bash"]

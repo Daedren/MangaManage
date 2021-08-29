@@ -9,11 +9,18 @@ class DatabaseGateway:
         self.conn = sqlite3.connect(databaseLocation)
         self.migrations = DatabaseMigrations()
         self.migrations.doMigrations(self.conn)
+        self.conn.row_factory = sqlite3.Row
         super().__init__()
 
     def __getCursor(self):
         cur = self.conn.cursor()
         return cur
+
+    def __dict_factory(self, cursor, row):
+        d = {}
+        for idx, col in enumerate(cursor.description):
+            d[col[0]] = row[idx]
+        return d
 
     def getAllChapters(self):
         cur = self.__getCursor()
@@ -38,8 +45,23 @@ class DatabaseGateway:
         """
         cur.execute(query, (anilistId,))
         row = cur.fetchone()
-        if isinstance(row, list):
-            return row[0]
+        if isinstance(row, tuple):
+            return row["series"]
+        else:
+            return row
+
+    def getMangaUpdForTracker(self, trackerId):
+        cur = self.__getCursor()
+
+        query = """
+        SELECT mangaUpdatesId
+        FROM anilist
+        WHERE anilistId = ?
+        """
+        cur.execute(query, (trackerId,))
+        row = cur.fetchone()
+        if isinstance(row, tuple):
+            return row["mangaUpdatesId"]
         else:
             return row
 
@@ -58,14 +80,16 @@ class DatabaseGateway:
         row = cur.fetchone()
         return row
 
-    def deleteChapter(self, seriesName, chapterNumber):
+    def deleteChapter(self, anilistId, chapterNumber):
         cur = self.__getCursor()
 
         # Remember that anilist only stores integers for chapter numbers!
         query = """
         DELETE FROM manga
-        WHERE chapter = ? AND series = ?"""
-        cur.execute(query, (chapterNumber, seriesName))
+        WHERE chapter = ?
+        AND series IN ( SELECT series FROM anilist WHERE anilistId = ?)
+        """
+        cur.execute(query, (chapterNumber, anilistId))
         self.conn.commit()
 
     def insertChapter(self, seriesName, chapterNumber: str, archivePath, sourcePath):
@@ -88,15 +112,39 @@ class DatabaseGateway:
         cur.execute(query, (seriesName, anilistId))
         self.conn.commit()
 
-    def getAllSeries(self) -> List[AnilistSeries]:
+    def insertMangaUpdt(self, anilistId, mangaUpdatesId: int):
+        cur = self.__getCursor()
+
+        query = """
+        UPDATE anilist
+        SET mangaUpdatesId = ?
+        WHERE anilistId = ?
+        """
+        cur.execute(query, (mangaUpdatesId, anilistId))
+        self.conn.commit()
+
+    def getAllSeriesWithLocalFiles(self) -> List[AnilistSeries]:
         cur = self.__getCursor()
         cur.execute(
-            """SELECT DISTINCT b.anilistId, a.series FROM manga a
+            """SELECT DISTINCT b.anilistId AS anilistId,
+                        a.series AS series,
+                        b.mangaUpdatesId AS mangaUpdatesId
+                        FROM manga a
                         INNER JOIN anilist b
                         ON a.series = b.series"""
         )
         rows = cur.fetchall()
-        return map(lambda a: AnilistSeries(a[0], a[1]), rows)
+        return map(lambda a: AnilistSeries(a["anilistId"], a["series"], a["mangaUpdatesId"]), rows)
+
+    def getAllSeries(self) -> List[AnilistSeries]:
+        cur = self.__getCursor()
+        cur.execute(
+            """
+            SELECT DISTINCT anilistId, series, mangaUpdatesId FROM anilist
+            """
+        )
+        rows = cur.fetchall()
+        return map(lambda a: AnilistSeries(a["anilistId"], a["series"], a["mangaUpdatesId"]), rows)
 
     def getAllSeriesWithoutTrackerIds(self) -> List[str]:
         cur = self.__getCursor()
@@ -109,16 +157,18 @@ class DatabaseGateway:
         rows = cur.fetchall()
         return rows
 
-    def getChaptersForSeriesBeforeNumber(self, series, chapter):
+    def getChaptersForSeriesBeforeNumber(self, anilistId, chapter):
         cur = self.__getCursor()
         cur.execute(
             """
             SELECT chapter
-            FROM manga
-            WHERE series = ?
+            FROM manga a
+            INNER JOIN anilist b
+            ON a.series = b.series
+            WHERE anilistId = ?
             AND CAST(chapter AS REAL) <= ?
                         """,
-            (series, chapter),
+            (anilistId, chapter),
         )
         rows = cur.fetchall()
         return rows
@@ -132,7 +182,7 @@ class DatabaseGateway:
         )
         row = cur.fetchone()
         if row is not None:
-            return row[0]
+            return row["source"]
         else:
             return None
 
@@ -146,7 +196,7 @@ class DatabaseGateway:
         )
         row = cur.fetchone()
         if row is not None:
-            return row[0]
+            return row["archive"]
         else:
             return None
 
@@ -160,7 +210,7 @@ class DatabaseGateway:
         )
         row = cur.fetchone()
         if row is not None:
-            return row[0]
+            return row["anilistId"]
         else:
             return None
 
@@ -177,3 +227,21 @@ class DatabaseGateway:
         )
         # HAVING MAX(a.creation_date) > ?
         return cur.fetchall()
+
+    def getHighestChapterAndLastUpdatedForSeries(self, anilistId):
+        cur = self.__getCursor()
+        cur.execute(
+            """
+        SELECT MAX(CAST(a.chapter AS INT)) AS max_chapter,
+          a.series,
+          anilistId,
+          mangaUpdatesId,
+          MAX(a.creation_date) AS max_date
+        FROM anilist b
+        LEFT JOIN manga AS a
+        ON a.series = b.series
+        WHERE anilistId = ?
+        GROUP BY anilistId;
+                        """
+        , (anilistId,))
+        return cur.fetchone()

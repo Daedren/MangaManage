@@ -1,5 +1,6 @@
 from manga.gateways.filesystem import FilesystemInterface
 from manga.gateways.anilist import AnilistGateway
+from manga.gateways.mangaupd import MangaUpdatesGateway
 from manga.gateways.database import DatabaseGateway
 from manga.mangagetchapter import CalculateChapterName
 from manga.updateAnilistIds import UpdateTrackerIds
@@ -8,6 +9,7 @@ from manga.createMetadata import CreateMetadata
 from manga.createMetadata2 import CreateMetadata2
 from manga.deleteReadAnilist import DeleteReadChapters
 from manga.checkMissingSQL import CheckMissingChaptersInSQL
+from manga.checkForUpdates import CheckForUpdates
 
 
 class MangaContainer:
@@ -17,6 +19,7 @@ class MangaContainer:
         database: DatabaseGateway,
         tracker: AnilistGateway,
         filesystem: FilesystemInterface,
+        mangaUpdates: MangaUpdatesGateway,
     ) -> None:
         self.config = config
         self.database = database
@@ -45,5 +48,9 @@ class MangaContainer:
 
         self.checkGapsInChapters = CheckGapsInChapters(
             self.database, self.filesystem, self.tracker
+        )
+
+        self.checkForUpdates = CheckForUpdates(
+            mangaUpdates, self.database, self.tracker
         )
         pass

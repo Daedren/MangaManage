@@ -11,6 +11,9 @@ class CreateMetadataInterface:
 
 @Logger
 class CreateMetadata(CreateMetadataInterface):
+    """ElementTree implementation of CreateMetadataInterface.
+    Use CreateMetadata2 if possible."""
+
     def __init__(self, filesystem: FilesystemInterface()):
         self.filesystem = filesystem
 

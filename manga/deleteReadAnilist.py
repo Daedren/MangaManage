@@ -27,7 +27,7 @@ class DeleteReadChapters:
         for entry in entries:
             series[entry["media"]["id"]] = entry
         # Remember that anilist only stores integers for chapter numbers!
-        rows = self.database.getAllSeries()
+        rows = self.database.getAllSeriesWithLocalFiles()
         row: AnilistSeries
         for row in rows:
             dbSeries = row.seriesName
@@ -45,11 +45,11 @@ class DeleteReadChapters:
             ):  # Chapter is null if series is still releasing
                 lastReadChapter += 30
             chaptersToDelete = self.database.getChaptersForSeriesBeforeNumber(
-                dbSeries, lastReadChapter
+                dbAnilistId, lastReadChapter
             )
             # Reminder: file deletion will only be permenant if they're synced
             for chap in chaptersToDelete:
-                chapterToDelete = chap[0]
+                chapterToDelete = chap["chapter"]
                 print(
                     "could be deleted "
                     + dbSeries
@@ -61,5 +61,5 @@ class DeleteReadChapters:
                 )
                 self.filesystem.deleteArchive(dbAnilistId, chapterToDelete)
                 # self.filesystem.deleteOriginal(dbSeries, chapterToDelete)
-                self.database.deleteChapter(dbSeries, chapterToDelete)
+                self.database.deleteChapter(dbAnilistId, chapterToDelete)
         print("---")

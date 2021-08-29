@@ -7,6 +7,8 @@ from lxml import etree
 
 @Logger
 class CreateMetadata2(CreateMetadataInterface):
+    """lxml implementation of CreateMetadataInterface."""
+
     def __init__(self, filesystem: FilesystemInterface()):
         self.filesystem = filesystem
 

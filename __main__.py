@@ -2,6 +2,7 @@ import argparse
 import logging
 from manga.updateAnilistIds import UpdateTrackerIds
 from manga.missingChapters import CheckGapsInChapters
+from manga.checkForUpdates import CheckForUpdates
 from mainRunner import MainRunner
 import datetime
 from appContainer import ApplicationContainer
@@ -13,11 +14,13 @@ from manga.checkMissingSQL import CheckMissingChaptersInSQL
 def main(mainRunner: MainRunner,
          checkMissingSQL: CheckMissingChaptersInSQL,
          checkMissingChapters: CheckGapsInChapters,
-         updateTrackerIds: UpdateTrackerIds):
+         updateTrackerIds: UpdateTrackerIds,
+         checkForUpdates: CheckForUpdates
+         ):
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('-deleteRead', action='store_true')
     parser.add_argument('--checkMissingSQL', action='store_true')
     parser.add_argument('--checkMissingChapters', action='store_true')
+    parser.add_argument('--mangaUpdates', action='store_true')
     parser.add_argument('--updateIds', action='store', type=str, nargs=2,
                         help='''Updates tracker ID in DB for series.
                         Usage: --updateIds <series> <anilistId>''')
@@ -33,6 +36,11 @@ def main(mainRunner: MainRunner,
     if args.checkMissingChapters:
         date = datetime.datetime.utcfromtimestamp(0)
         checkMissingChapters.getGapsFromChaptersSince(date)
+        return
+    
+    if args.mangaUpdates:
+        checkForUpdates.updateLocalIds()
+        checkForUpdates.checkForUpdates()
         return
 
     if args.updateIds:
@@ -58,4 +66,5 @@ if __name__ == '__main__':
     main(application.mainRunner,
          application.manga.checkMissingSQL,
          application.manga.checkGapsInChapters,
-         application.manga.updateTrackerIds)
+         application.manga.updateTrackerIds,
+         application.manga.checkForUpdates)

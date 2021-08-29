@@ -79,7 +79,7 @@ class UpdateTrackerIds:
 
         for entry in entries:
             for row in rows:
-                result = self.__tryTuple(entry, row[0])
+                result = self.__tryTuple(entry, row["chapter"])
                 if result is not None:
                     toadd.append(result)
 

@@ -35,10 +35,10 @@ class CheckGapsInChapters:
         trackerMapData = dict((v["media"]["id"], v) for v in trackerData)
         dbMapData = dict()
         for i in dbresult:
-            if not i[1] in dbMapData:
-                dbMapData[i[1]] = [i]
+            if not i["anilistId"] in dbMapData:
+                dbMapData[i["anilistId"]] = [i]
             else:
-                dbMapData[i[1]].append(i)
+                dbMapData[i["anilistId"]].append(i)
 
         newQuarantineList = list()
         newQuarantineAnilist = list()
@@ -48,14 +48,14 @@ class CheckGapsInChapters:
             rowData = row[1]
             realProgress = trackerMapData[rowAnilistId]["progress"]
             if realProgress is None:
-                self.logger.debug("no progress in Anilist for %s \n" % row[0])
+                self.logger.info("no progress in Anilist for %s \n" % row[0])
                 return
 
             titles = trackerMapData[rowAnilistId]["media"]["title"]
 
-            allChapters = list(map(lambda x: float(x[0]), rowData))
+            allChapters = list(map(lambda x: float(x["chapter"]), rowData))
             if self.__gapExistsInTrackerProgress(realProgress, allChapters):
-                self.logger.debug(
+                self.logger.info(
                     "{} - Last read at {}, but only {} is in DB".format(
                         titles, realProgress, min(allChapters)
                     )
@@ -76,7 +76,7 @@ class CheckGapsInChapters:
             self.filesystem.getQuarantinedSeries(), newQuarantineAnilist
         )
         for anilistId in toQuarantine:
-            self.logger.debug(f"Adding {anilistId} to quarantine")
+            self.logger.info(f"Adding {anilistId} to quarantine")
             self.filesystem.quarantineSeries(anilistId=anilistId)
 
         # limitedByDate = filter(lambda x: x[3] > datetime, newQuarantineList)
@@ -89,7 +89,7 @@ class CheckGapsInChapters:
             quarantinedSeries, newQuarantineList
         )
         for anilistId in noLongerQuarantined:
-            self.logger.debug(f"Removing {anilistId} from quarantine")
+            self.logger.info(f"Removing {anilistId} from quarantine")
             self.filesystem.restoreQuarantinedArchive(anilistId)
         return
 
@@ -103,7 +103,7 @@ class CheckGapsInChapters:
             if (lastChapter is not None) and (round(chap - lastChapter, 1) > 1.1):
                 found_gap = True
                 if titlesForLogging is not None:
-                    self.logger.debug(
+                    self.logger.info(
                         f"{titlesForLogging} - Gap between {lastChapter} and {chap}"
                     )
             lastChapter = chap

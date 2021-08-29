@@ -1,6 +1,7 @@
 from .anilist import AnilistGateway
 from .database import DatabaseGateway
 from .pushover import PushoverGateway
+from .mangaupd import MangaUpdatesGateway
 from .filesystem import FilesystemGateway
 
 
@@ -19,6 +20,8 @@ class GatewayContainer:
             self.config["manga"]["anilisttoken"],
             self.config["manga"]["anilistuserid"],
         )
+        
+        self.mangaUpdates = MangaUpdatesGateway()
         # self.tracker = FakeAnilistGateway()
 
         self.push = PushoverGateway(
