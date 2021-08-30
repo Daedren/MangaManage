@@ -16,12 +16,6 @@ class DatabaseGateway:
         cur = self.conn.cursor()
         return cur
 
-    def __dict_factory(self, cursor, row):
-        d = {}
-        for idx, col in enumerate(cursor.description):
-            d[col[0]] = row[idx]
-        return d
-
     def getAllChapters(self):
         cur = self.__getCursor()
         query = """
@@ -233,7 +227,7 @@ class DatabaseGateway:
         cur.execute(
             """
         SELECT MAX(CAST(a.chapter AS INT)) AS max_chapter,
-          a.series,
+          b.series,
           anilistId,
           mangaUpdatesId,
           MAX(a.creation_date) AS max_date

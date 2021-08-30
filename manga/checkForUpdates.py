@@ -51,11 +51,15 @@ class CheckForUpdates:
             latestInDb = dbInfo["max_chapter"]
             if latestInDb is None:
                 latestInDb = 0
+            if releaseNum is None:
+                continue
             try:
                 intReleaseNum = int(releaseNum)
+                if series["progress"] >= intReleaseNum:
+                    continue
                 if latestInDb < intReleaseNum:
                     print(
-                        f"{dbInfo['series']} - has {latestInDb} in DB. Latest chapter is {intReleaseNum}"
+                        f"{dbInfo['series']} ({dbInfo['anilistId']}) - has {latestInDb} in DB. Last read {series['progress']}. Latest chapter is {intReleaseNum}"
                     )
             except ValueError:
                 continue
