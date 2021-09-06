@@ -1,4 +1,8 @@
-FROM alpine:3.14
-RUN apk update \
-&& apk add libwebp-tools sqlite python3 bash py3-pip vim zip curl g++ libxml2-dev libxslt-dev
-ENTRYPOINT ["/bin/bash"]
+FROM python:3.9-slim
+
+WORKDIR /mbase
+
+COPY . .
+RUN pip install --no-cache-dir -r requirements.txt
+
+CMD [ "python", "." ]
