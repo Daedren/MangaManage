@@ -94,6 +94,7 @@ class MainRunner:
                 self.filesystem.deleteFolder(location=chapterPathStr)
             else:
                 print("Source exists but already in db")
+                self.filesystem.deleteFolder(location=chapterPathStr)
             print("***")
         if numberOfNewChapters > 0:
             print("Chapter gaps ---")
