@@ -12,7 +12,7 @@ class UpdateTrackerIds:
         self.database = database
         pass
 
-    def __tryTuple(self, entry, series, force=False) -> Optional[Tuple[str, str]]:
+    def __tryTuple(self, entry, series, force=False, interactive=False) -> Optional[Tuple[str, str]]:
         allDistancesText = ["", "", ""]
         edistance = 999
         sdistance = 999
@@ -55,13 +55,16 @@ class UpdateTrackerIds:
                 + " "
                 + str(entry["media"]["id"])
             )
+            if interactive:
+                userValue = input("Enter Anilist ID: ")
+                return userValue
             return None
 
-    def updateFor(self, series) -> Optional[str]:
+    def updateFor(self, series, interactive=False) -> Optional[str]:
         print("Updating for " + series)
         entries = self.anilist.getAllEntries()
         for entry in entries:
-            result = self.__tryTuple(entry, series)
+            result = self.__tryTuple(entry, series, interactive=interactive)
             if result is not None:
                 self.database.insertTracking(result[0], result[1])
                 return result[1]

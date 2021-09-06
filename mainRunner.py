@@ -45,7 +45,7 @@ class MainRunner:
         self.updateTrackerIds = updateTrackerIds
         self.createMetadata = createMetadata
 
-    def execute(self):
+    def execute(self, interactive=False):
         numberOfNewChapters = 0
         dateScriptStart = datetime.datetime.now()
         # Globs chapters
@@ -76,7 +76,7 @@ class MainRunner:
                 anilistId, chapterNumber
             )
             if not anilistId or anilistId is None:
-                foundAnilistId = self.findAnilistIdForSeries(seriesName)
+                foundAnilistId = self.findAnilistIdForSeries(seriesName, interactive=interactive)
                 estimatedArchivePath = self.generateArchivePath(
                     foundAnilistId, chapterNumber
                 )
@@ -108,8 +108,8 @@ class MainRunner:
     def generateArchivePath(self, anilistId, chapterNumber):
         return Path(self.archiveFolder).joinpath(f"{anilistId}/{chapterNumber}.cbz")
 
-    def findAnilistIdForSeries(self, series: str) -> Optional[str]:
-        return self.updateTrackerIds.updateFor(series)
+    def findAnilistIdForSeries(self, series: str, interactive=False) -> Optional[str]:
+        return self.updateTrackerIds.updateFor(series, interactive=interactive)
 
     def setupMetadata(self, chapter: Chapter):
         self.createMetadata.execute(chapter)
