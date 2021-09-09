@@ -1,5 +1,6 @@
 import argparse
 import logging
+import sys
 from manga.updateAnilistIds import UpdateTrackerIds
 from manga.missingChapters import CheckGapsInChapters
 from manga.checkForUpdates import CheckForUpdates
@@ -84,7 +85,8 @@ if __name__ == "__main__":
     assert config is not None
     assert config["manga"]["sourcefolder"] is not None
 
-    logging.basicConfig(level=config["system"]["loglevel"])
+    handler = logging.StreamHandler(sys.stdout)
+    logging.basicConfig(level=config["system"]["loglevel"], handlers=[handler])
     application = ApplicationContainer(config)
     main(
         application.mainRunner,
