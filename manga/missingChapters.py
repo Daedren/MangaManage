@@ -72,11 +72,8 @@ class CheckGapsInChapters:
                 newQuarantineList.append(row)
 
         self.__checkQuarantines(newQuarantineAnilist)
-        toQuarantine = self.__getOnlyNewQuarantines(
-            self.filesystem.getQuarantinedSeries(), newQuarantineAnilist
-        )
-        for anilistId in toQuarantine:
-            self.logger.info(f"Adding {anilistId} to quarantine")
+
+        for anilistId in newQuarantineAnilist:
             self.filesystem.quarantineSeries(anilistId=anilistId)
 
         # limitedByDate = filter(lambda x: x[3] > datetime, newQuarantineList)
@@ -89,7 +86,6 @@ class CheckGapsInChapters:
             quarantinedSeries, newQuarantineList
         )
         for anilistId in noLongerQuarantined:
-            self.logger.info(f"Removing {anilistId} from quarantine")
             self.filesystem.restoreQuarantinedArchive(anilistId)
         return
 

@@ -94,8 +94,16 @@ class FilesystemGateway(FilesystemInterface):
     def quarantineSeries(self, anilistId: str):
         archiveSeriesPath = Path.joinpath(self.archiveRootPath, f"{anilistId}")
         quarantineSeriesPath = Path.joinpath(self.quarantineFolder, f"{anilistId}")
+        
+        if not archiveSeriesPath.exists():
+            return
+        
+        if quarantineSeriesPath.exists():
+            self.logger.info(f"Updating {anilistId} in quarantine")
+        else:
+            self.logger.info(f"Adding {anilistId} to quarantine")
+            quarantineSeriesPath.mkdir(parents=True)
 
-        quarantineSeriesPath.mkdir(parents=True, exist_ok=True)
         for file in archiveSeriesPath.iterdir():
             filename = file.name
             trg_path = quarantineSeriesPath.joinpath(filename)
@@ -106,6 +114,7 @@ class FilesystemGateway(FilesystemInterface):
         archiveSeriesPath = Path.joinpath(self.archiveRootPath, f"{anilistId}")
         quarantineSeriesPath = Path.joinpath(self.quarantineFolder, f"{anilistId}")
 
+        self.logger.info(f"Removing {anilistId} from quarantine")
         archiveSeriesPath.mkdir(parents=True, exist_ok=True)
         for file in quarantineSeriesPath.iterdir():
             filename = file.name
