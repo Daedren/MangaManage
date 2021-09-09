@@ -23,6 +23,7 @@ class DatabaseGateway:
         FROM manga
         INNER JOIN anilist
         ON manga.series = anilist.series
+        WHERE active = 1
         """
         cur.execute(query)
         rows = cur.fetchall()
@@ -68,7 +69,7 @@ class DatabaseGateway:
         FROM manga a
         INNER JOIN anilist b
         ON a.series = b.series
-        WHERE chapter = ? AND anilistId = ?
+        WHERE chapter = ? AND anilistId = ? AND a.active = 1
         """
         cur.execute(query, (chapterNumber, anilistId))
         row = cur.fetchone()
@@ -79,7 +80,8 @@ class DatabaseGateway:
 
         # Remember that anilist only stores integers for chapter numbers!
         query = """
-        DELETE FROM manga
+        UPDATE manga
+        SET active = 0
         WHERE chapter = ?
         AND series IN ( SELECT series FROM anilist WHERE anilistId = ?)
         """
@@ -125,7 +127,8 @@ class DatabaseGateway:
                         b.mangaUpdatesId AS mangaUpdatesId
                         FROM manga a
                         INNER JOIN anilist b
-                        ON a.series = b.series"""
+                        ON a.series = b.series
+                        WHERE a.active = 1"""
         )
         rows = cur.fetchall()
         return map(lambda a: AnilistSeries(a["anilistId"], a["series"], a["mangaUpdatesId"]), rows)
@@ -146,7 +149,7 @@ class DatabaseGateway:
             """SELECT DISTINCT a.series FROM manga a
                         LEFT JOIN anilist b
                         ON a.series = b.series
-                    WHERE anilistId IS NULL"""
+                    WHERE anilistId IS NULL and a.active = 1"""
         )
         rows = cur.fetchall()
         return rows
@@ -161,6 +164,7 @@ class DatabaseGateway:
             ON a.series = b.series
             WHERE anilistId = ?
             AND CAST(chapter AS REAL) <= ?
+            AND a.active = 1
                         """,
             (anilistId, chapter),
         )
@@ -171,7 +175,7 @@ class DatabaseGateway:
         cur = self.__getCursor()
         cur.execute(
             """SELECT source FROM manga
-                        WHERE series = ? AND chapter = ? """,
+                        WHERE series = ? AND chapter = ? AND active = 1""",
             (series, chapter),
         )
         row = cur.fetchone()
@@ -185,7 +189,7 @@ class DatabaseGateway:
         series = series
         cur.execute(
             """SELECT archive FROM manga
-                        WHERE series = ? AND chapter = ? """,
+                        WHERE series = ? AND chapter = ? AND active = 1""",
             (series, chapter),
         )
         row = cur.fetchone()
@@ -216,6 +220,7 @@ class DatabaseGateway:
         FROM manga a
         INNER JOIN anilist AS b
         ON a.series = b.series
+        WHERE a.active = 1
         GROUP BY anilistId
                         """
         )
@@ -234,8 +239,22 @@ class DatabaseGateway:
         FROM anilist b
         LEFT JOIN manga AS a
         ON a.series = b.series
-        WHERE anilistId = ?
+        WHERE anilistId = ? AND a.active = 1
         GROUP BY anilistId;
                         """
         , (anilistId,))
         return cur.fetchone()
+
+    #def getVolumeChapters(self, anilistId):
+    #    cur = self.__getCursor()
+    #    cur.execute(
+    #        """SELECT volume, MAX(volumeChapter) FROM manga a
+    #           INNER JOIN anilist b
+    #           ON a.series = b.series
+    #           WHERE anilistId = ?
+    #           GROUP BY anilistId, volume;
+    #        """,
+    #        (anilistId, )
+    #    )
+    #    rows = cur.fetchall()
+    #    return rows
