@@ -17,8 +17,8 @@ class GatewayContainer:
         # self.filesystem = FilesystemFakeGateway()
 
         self.tracker = AnilistGateway(
-            self.config["manga"]["anilisttoken"],
-            self.config["manga"]["anilistuserid"],
+            self.config["tracker"]["anilisttoken"],
+            self.config["tracker"]["anilistuserid"],
         )
         
         self.mangaUpdates = MangaUpdatesGateway()

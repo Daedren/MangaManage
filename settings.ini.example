@@ -5,6 +5,9 @@ sqlitelocation = <folderpath/stuff.db>
 sourcefolder = <folderpath to Tachiyomi manga folder>
 archivefolder = <folderpath to place resulting manga archives>
 quarantinefolder = <folderpath to place manga archives that are incomplete>
+symlinkfolder = <optional. leave empty after the = if you don't need this>
+
+[tracker]
 anilisttoken = Bearer <token>
 anilistuserid = <your anilist userid>
 
