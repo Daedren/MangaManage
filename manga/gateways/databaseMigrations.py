@@ -27,6 +27,7 @@ class DatabaseMigrations:
             self.logger.error(
                 "This version of the application is too old to run this database"
             )
+            exit(1)
             return
 
     def __version0To1(self, conn: sqlite3.Connection):

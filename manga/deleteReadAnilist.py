@@ -1,3 +1,4 @@
+from decorators import Logger
 from manga.gateways.utils.databaseModels import AnilistSeries
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.filesystem import FilesystemInterface
@@ -7,8 +8,9 @@ import sys
 sys.path = [""] + sys.path
 
 
-# Deletes stored manga that has been marked as read on Anilist
+@Logger
 class DeleteReadChapters:
+    ''' Deletes stored manga that has been marked as read on Anilist'''
     def __init__(
         self,
         anilist: AnilistGateway,
@@ -23,7 +25,7 @@ class DeleteReadChapters:
     def execute(self):
         entries = self.anilist.getAllEntries()
         series = dict()
-        print("Deleting read manga ---")
+        self.logger.info("Deleting read manga")
         for entry in entries:
             series[entry["media"]["id"]] = entry
         # Remember that anilist only stores integers for chapter numbers!
@@ -34,7 +36,7 @@ class DeleteReadChapters:
             dbAnilistId = row.anilistId
             anilistSeries = series.get(dbAnilistId)
             if anilistSeries is None:
-                print("No series in anilist for %s" % dbAnilistId)
+                self.logger.error("No series in anilist for %s" % dbAnilistId)
                 continue
             lastReadChapter = series[dbAnilistId][
                 "progress"
@@ -50,8 +52,8 @@ class DeleteReadChapters:
             # Reminder: file deletion will only be permenant if they're synced
             for chap in chaptersToDelete:
                 chapterToDelete = chap["chapter"]
-                print(
-                    "could be deleted "
+                self.logger.info(
+                    "Deleting"
                     + dbSeries
                     + " - ("
                     + str(chapterToDelete)
@@ -62,4 +64,3 @@ class DeleteReadChapters:
                 self.filesystem.deleteArchive(dbAnilistId, chapterToDelete)
                 # self.filesystem.deleteOriginal(dbSeries, chapterToDelete)
                 self.database.deleteChapter(dbAnilistId, chapterToDelete)
-        print("---")

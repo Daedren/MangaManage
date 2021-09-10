@@ -1,12 +1,12 @@
 [database]
-sqlitelocation = <stuff>
+sqlitelocation = <folderpath/stuff.db>
 
 [manga]
-sourcefolder = <stuff>
-archivefolder = <stuff>
-quarantinefolder = <stuff>
+sourcefolder = <folderpath to Tachiyomi manga folder>
+archivefolder = <folderpath to place resulting manga archives>
+quarantinefolder = <folderpath to place manga archives that are incomplete>
 anilisttoken = Bearer <token>
-anilistuserid = <stuff>
+anilistuserid = <your anilist userid>
 
 [push]
 pushoveruserkey = <stuff>
@@ -14,5 +14,5 @@ pushoverappkey = <stuff>
 
 [system]
 loglevel = DEBUG
-; lxml or ElementTree
+; lxml or ElementTree. Preferred lxml
 xmlParser = lxml

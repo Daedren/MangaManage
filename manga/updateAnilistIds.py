@@ -1,9 +1,11 @@
+from decorators import Logger
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.anilist import AnilistGateway
 from typing import Optional, Tuple
 from .utils.pylev import levenschtein
 
 
+@Logger
 class UpdateTrackerIds:
     """Updates local DB with tracker's IDs"""
 
@@ -42,10 +44,10 @@ class UpdateTrackerIds:
 
         if min(allDistances) <= 4:
             rightName = allDistancesText[allDistances.index(min(allDistances))]
-            print("found " + series + " - " + str(rightName))
+            self.logger.info("found " + series + " - " + str(rightName))
             return (series, entry["media"]["id"])
         elif min(allDistances) < 10:
-            print(
+            self.logger.info(
                 "possible match ("
                 + str(min(allDistances))
                 + ") "
@@ -61,7 +63,7 @@ class UpdateTrackerIds:
             return None
 
     def updateFor(self, series, interactive=False) -> Optional[str]:
-        print("Updating for " + series)
+        self.logger.info("Updating for " + series)
         entries = self.anilist.getAllEntries()
         for entry in entries:
             result = self.__tryTuple(entry, series, interactive=interactive)
