@@ -1,4 +1,4 @@
-from decorators import Logger
+from cross.decorators import Logger
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.anilist import AnilistGateway
 from typing import Optional, Tuple

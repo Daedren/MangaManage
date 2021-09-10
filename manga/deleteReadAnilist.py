@@ -1,4 +1,4 @@
-from decorators import Logger
+from cross.decorators import Logger
 from manga.gateways.utils.databaseModels import AnilistSeries
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.filesystem import FilesystemInterface
