@@ -1,4 +1,5 @@
 import os
+import zipfile
 from pathlib import Path
 import shutil
 from cross.decorators import Logger
@@ -21,6 +22,10 @@ class FilesystemInterface:
         pass
 
     def saveFile(self, stringData: str, filepath: Path):
+        pass
+
+    def compress_chapter(self, archive_path: Path, source_path: Path):
+        '''Compresses chapter at source_path with destination archive_path'''
         pass
 
 
@@ -130,3 +135,15 @@ class FilesystemGateway(FilesystemInterface):
     def saveFile(self, stringData: str, filepath: Path):
         with open(filepath.resolve(), "wb") as file:
             file.write(stringData)
+
+    def compress_chapter(self, archive_path: Path, source_path: Path):
+        archive_path.parent.mkdir(parents=True, exist_ok=True)
+        destination = archive_path.resolve()
+        ziphandler = zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED)
+        path = source_path.resolve()
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                if file.startswith("."):
+                    continue
+                ziphandler.write(os.path.join(root, file), file)
+        ziphandler.close()

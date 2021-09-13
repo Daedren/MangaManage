@@ -12,7 +12,6 @@ from typing import Optional
 import glob
 import os
 from pathlib import Path
-import zipfile
 import datetime
 
 # for each folder in sources
@@ -86,7 +85,6 @@ class MainRunner:
                     return
                 chapterData.anilistId = foundAnilistId
             if not isChapterOnDB:
-                chapterData.archivePath.parent.mkdir(parents=True, exist_ok=True)
                 self.setupMetadata(chapterData)
                 self.compressChapter(chapterData)
                 self.insertInDatabase(chapterData)
@@ -98,7 +96,7 @@ class MainRunner:
             print("***")
         if numberOfNewChapters > 0:
             print("Chapter gaps ---")
-            print(self.missingChapters.getGapsFromChaptersSince(dateScriptStart))
+            self.missingChapters.getGapsFromChaptersSince(dateScriptStart)
             print("---")
             self.pushNotification.sendPush(
                 f"{numberOfNewChapters} new chapters downloaded"
@@ -115,15 +113,7 @@ class MainRunner:
         self.createMetadata.execute(chapter)
 
     def compressChapter(self, chapter: Chapter):
-        destination = chapter.archivePath.resolve()
-        ziphandler = zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED)
-        path = chapter.sourcePath.resolve()
-        for root, dirs, files in os.walk(path):
-            for file in files:
-                if file.startswith("."):
-                    continue
-                ziphandler.write(os.path.join(root, file), file)
-        ziphandler.close()
+        self.filesystem.compress_chapter(chapter.archivePath, chapter.sourcePath)
 
     def insertInDatabase(self, chapter: Chapter):
         self.database.insertChapter(

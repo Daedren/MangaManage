@@ -32,7 +32,7 @@ optional arguments:
                         database. --force fixes them
   --checkMissingChapters
                         Prints missing chapters from downloaded series.
-                        Running the program normally also checks these
+                        This checks all series, while normal execution only checks those updated
   --mangaUpdates        Cross-checks MangaUpdates to see if there are new
                         chapters released we don't have
   --updateIds UPDATEIDS UPDATEIDS

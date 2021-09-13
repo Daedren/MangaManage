@@ -31,8 +31,12 @@ class CheckGapsInChapters:
 
     def getGapsFromChaptersSince(self, date: datetime):
         dbresult = self.database.getAllChapters()
+        # dbresult = self.database.getAllChaptersOfSeriesUpdatedAfter(date)
+        lastUpdatedSeries = self.database.getSeriesLastUpdatedSince(date)
         trackerData = self.anilist.getAllEntries()
+
         trackerMapData = dict((v["media"]["id"], v) for v in trackerData)
+        lastUpdatedMapData = dict((v["anilistId"], v) for v in lastUpdatedSeries)
         dbMapData = dict()
         for i in dbresult:
             if not i["anilistId"] in dbMapData:
@@ -47,6 +51,7 @@ class CheckGapsInChapters:
             rowAnilistId = row[0]
             rowData = row[1]
             realProgress = trackerMapData[rowAnilistId]["progress"]
+            shouldLog: bool = (lastUpdatedMapData.get(rowAnilistId) is not None)
             if realProgress is None:
                 self.logger.info("no progress in Anilist for %s \n" % row[0])
                 return
@@ -55,17 +60,18 @@ class CheckGapsInChapters:
 
             allChapters = list(map(lambda x: float(x["chapter"]), rowData))
             if self.__gapExistsInTrackerProgress(realProgress, allChapters):
-                self.logger.info(
-                    "{} - Last read at {}, but only {} is in DB".format(
-                        titles, realProgress, min(allChapters)
+                if shouldLog:
+                    self.logger.info(
+                        "{} - Last read at {}, but only {} is in DB".format(
+                            titles, realProgress, min(allChapters)
+                        )
                     )
-                )
                 newQuarantineAnilist.append(rowAnilistId)
                 newQuarantineList.append(row)
                 continue
 
             noGapsInChapters = self.__checkConsecutive(
-                allChapters, titlesForLogging=titles
+                allChapters, titlesForLogging=titles, shouldLog=shouldLog
             )
             if not noGapsInChapters:
                 newQuarantineAnilist.append(rowAnilistId)
@@ -90,7 +96,7 @@ class CheckGapsInChapters:
         return
 
     def __checkConsecutive(
-        self, listToCheck: list, titlesForLogging: Optional[str] = None
+        self, listToCheck: list, titlesForLogging: Optional[str] = None, shouldLog=True
     ) -> bool:
         sortedChapters = sorted(listToCheck)
         lastChapter = None
@@ -98,7 +104,7 @@ class CheckGapsInChapters:
         for chap in sortedChapters:
             if (lastChapter is not None) and (round(chap - lastChapter, 1) > 1.1):
                 found_gap = True
-                if titlesForLogging is not None:
+                if titlesForLogging is not None and shouldLog:
                     self.logger.info(
                         f"{titlesForLogging} - Gap between {lastChapter} and {chap}"
                     )

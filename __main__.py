@@ -28,7 +28,7 @@ def main(
     parser.add_argument(
         "--checkMissingChapters",
         action="store_true",
-        help="Prints missing chapters from downloaded series. Running the program normally also checks these",
+        help="Prints missing chapters from downloaded series. This checks all series, while normal execution only checks those updated",
     )
     parser.add_argument(
         "--mangaUpdates",

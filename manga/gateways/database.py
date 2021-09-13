@@ -1,3 +1,4 @@
+from datetime import datetime
 import sqlite3
 from typing import List
 from .utils.databaseModels import AnilistSeries
@@ -19,7 +20,7 @@ class DatabaseGateway:
     def getAllChapters(self):
         cur = self.__getCursor()
         query = """
-        SELECT chapter, anilistId, creation_date
+        SELECT chapter, anilistId
         FROM manga
         INNER JOIN anilist
         ON manga.series = anilist.series
@@ -244,6 +245,37 @@ class DatabaseGateway:
                         """
         , (anilistId,))
         return cur.fetchone()
+
+    def getAllChaptersOfSeriesUpdatedAfter(self, lastUpdated: datetime):
+        cur = self.__getCursor()
+        query = """
+        SELECT chapter, anilistId
+        FROM manga a
+        INNER JOIN anilist b
+        ON a.series = b.series
+        WHERE active = 1 AND a.series IN (
+          SELECT DISTINCT series
+          FROM manga c
+          WHERE creation_date > ?
+        )
+        """
+        cur.execute(query, (lastUpdated,))
+        rows = cur.fetchall()
+        return rows
+
+    def getSeriesLastUpdatedSince(self, lastUpdated: datetime):
+        cur = self.__getCursor()
+        query = """
+        SELECT anilistId, MAX(a.creation_date) AS lastUpdated
+        FROM manga a
+        INNER JOIN anilist b
+        ON a.series = b.series
+        WHERE a.creation_date > ?
+        GROUP BY anilistId
+        """
+        cur.execute(query, (lastUpdated, ))
+        rows = cur.fetchall()
+        return rows
 
     #def getVolumeChapters(self, anilistId):
     #    cur = self.__getCursor()
