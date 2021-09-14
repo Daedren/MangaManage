@@ -53,7 +53,7 @@ class DeleteReadChapters:
             for chap in chaptersToDelete:
                 chapterToDelete = chap["chapter"]
                 self.logger.info(
-                    "Deleting"
+                    "Deleting "
                     + dbSeries
                     + " - ("
                     + str(chapterToDelete)

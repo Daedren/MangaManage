@@ -5,7 +5,7 @@ from cross.decorators import Logger
 @Logger
 class DatabaseMigrations:
     def __init__(self):
-        self.LATEST_DB_VERSION = 3
+        self.LATEST_DB_VERSION = 4
 
     def doMigrations(self, conn: sqlite3.Connection):
         version = -1
@@ -23,6 +23,8 @@ class DatabaseMigrations:
             self.__version1To2(conn)
         elif currentVersion == 2:
             self.__version2To3(conn)
+        elif currentVersion == 3:
+            self.__version3To4(conn)
         elif currentVersion > self.LATEST_DB_VERSION:
             self.logger.error(
                 "This version of the application is too old to run this database"
@@ -64,6 +66,16 @@ class DatabaseMigrations:
              ALTER TABLE manga ADD active integer DEFAULT 1;
 
              PRAGMA user_version = 3;
+        """
+        cur = conn.cursor()
+        cur.executescript(query)
+
+    def __version3To4(self, conn: sqlite3.Connection):
+        self.logger.info("Executing migration version 3 -> 4")
+        query = """
+             ALTER TABLE manga ADD last_active timestamp;
+
+             PRAGMA user_version = 4;
         """
         cur = conn.cursor()
         cur.executescript(query)

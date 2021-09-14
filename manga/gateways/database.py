@@ -82,7 +82,7 @@ class DatabaseGateway:
         # Remember that anilist only stores integers for chapter numbers!
         query = """
         UPDATE manga
-        SET active = 0
+        SET active = 0, last_active = datetime('now')
         WHERE chapter = ?
         AND series IN ( SELECT series FROM anilist WHERE anilistId = ?)
         """

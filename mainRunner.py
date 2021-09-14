@@ -1,3 +1,4 @@
+from cross.decorators import Logger
 from manga.updateAnilistIds import UpdateTrackerIds
 import html
 from manga.mangagetchapter import CalculateChapterName
@@ -19,6 +20,7 @@ import datetime
 # getChapter -> title
 
 
+@Logger
 class MainRunner:
     def __init__(
         self,
@@ -49,7 +51,7 @@ class MainRunner:
         dateScriptStart = datetime.datetime.now()
         # Globs chapters
         for chapterPathStr in glob.iglob(f"{self.sourceFolder}/*/*/*"):
-            print(chapterPathStr)
+            self.logger.debug(f"Parsing: {chapterPathStr}")
             # Inferring information from files
             chapterPath = Path(chapterPathStr)
             chapterName = html.unescape(chapterPath.name)
@@ -65,11 +67,7 @@ class MainRunner:
                 chapterPath,
                 estimatedArchivePath,
             )
-            print(seriesName)
-            print(chapterName)
-            print(anilistId)
-            print(chapterNumber)
-            print(estimatedArchivePath)
+            self.logger.debug(f"Already had tracker ID: {anilistId}")
 
             isChapterOnDB = self.database.doesExistChapterAndAnilist(
                 anilistId, chapterNumber
@@ -81,7 +79,7 @@ class MainRunner:
                 )
                 chapterData.archivePath = estimatedArchivePath
                 if not foundAnilistId or foundAnilistId is None:
-                    print(f"No anilistId for {chapterData.seriesName}")
+                    self.logger.error(f"No anilistId for {chapterData.seriesName}")
                     return
                 chapterData.anilistId = foundAnilistId
             if not isChapterOnDB:
@@ -91,13 +89,10 @@ class MainRunner:
                 numberOfNewChapters += 1
                 self.filesystem.deleteFolder(location=chapterPathStr)
             else:
-                print("Source exists but already in db")
+                self.logger.info("Source exists but chapter's already in db")
                 self.filesystem.deleteFolder(location=chapterPathStr)
-            print("***")
         if numberOfNewChapters > 0:
-            print("Chapter gaps ---")
             self.missingChapters.getGapsFromChaptersSince(dateScriptStart)
-            print("---")
             self.pushNotification.sendPush(
                 f"{numberOfNewChapters} new chapters downloaded"
             )
