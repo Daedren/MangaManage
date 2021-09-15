@@ -25,7 +25,7 @@ class CheckForUpdates:
         for row in allLocalSeriesWithoutIds:
             mangaUpdId = self.mangaUpdatesGateway.searchForSeries(row.seriesName)
             self.database.insertMangaUpdt(row.anilistId, mangaUpdatesId=mangaUpdId)
-            time.sleep(5)
+            time.sleep(2)
 
     def checkForUpdates(self):
         # This isn't checking:
@@ -38,7 +38,7 @@ class CheckForUpdates:
 
         # Perhaps should get anilistIDs from db, rather than API
         for series in runningSeries:
-            time.sleep(5)
+            time.sleep(2)
             anilistId = series["media"]["id"]
             dbInfo = self.database.getHighestChapterAndLastUpdatedForSeries(anilistId)
             if not dbInfo:

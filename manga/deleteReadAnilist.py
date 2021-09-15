@@ -25,7 +25,6 @@ class DeleteReadChapters:
     def execute(self):
         entries = self.anilist.getAllEntries()
         series = dict()
-        self.logger.info("Deleting read manga")
         for entry in entries:
             series[entry["media"]["id"]] = entry
         # Remember that anilist only stores integers for chapter numbers!

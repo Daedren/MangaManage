@@ -48,6 +48,7 @@ class MainRunner:
 
     def execute(self, interactive=False):
         numberOfNewChapters = 0
+        titlesForPushNotif: [str] = []
         dateScriptStart = datetime.datetime.now()
         # Globs chapters
         for chapterPathStr in glob.iglob(f"{self.sourceFolder}/*/*/*"):
@@ -87,15 +88,14 @@ class MainRunner:
                 self.compressChapter(chapterData)
                 self.insertInDatabase(chapterData)
                 numberOfNewChapters += 1
+                titlesForPushNotif.append(f'{seriesName} {chapterNumber}')
                 self.filesystem.deleteFolder(location=chapterPathStr)
             else:
                 self.logger.info("Source exists but chapter's already in db")
                 self.filesystem.deleteFolder(location=chapterPathStr)
         if numberOfNewChapters > 0:
             self.missingChapters.getGapsFromChaptersSince(dateScriptStart)
-            self.pushNotification.sendPush(
-                f"{numberOfNewChapters} new chapters downloaded"
-            )
+            self.send_push(numberOfNewChapters, titlesForPushNotif)
         self.deleteReadChapters.execute()
 
     def generateArchivePath(self, anilistId, chapterNumber):
@@ -116,4 +116,11 @@ class MainRunner:
             chapter.chapterNumber,
             str(chapter.archivePath.resolve()),
             str(chapter.sourcePath.resolve()),
+        )
+
+    def send_push(self, number_of_chapters: int, titles: [str]):
+        base = f"{number_of_chapters} new chapters downloaded\n\n"
+        chapters_body = '\n'.join(titles)
+        self.pushNotification.sendPush(
+            base + chapters_body
         )
