@@ -1,6 +1,10 @@
+import datetime
+import glob
+import html
+from typing import Optional, Set
+from pathlib import Path
 from cross.decorators import Logger
 from manga.updateAnilistIds import UpdateTrackerIds
-import html
 from manga.mangagetchapter import CalculateChapterName
 from manga.deleteReadAnilist import DeleteReadChapters
 from manga.missingChapters import CheckGapsInChapters
@@ -9,11 +13,6 @@ from manga.gateways.pushover import PushServiceInterface
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.filesystem import FilesystemInterface
 from manga.models.chapter import Chapter
-from typing import Optional
-import glob
-import os
-from pathlib import Path
-import datetime
 
 # for each folder in sources
 # databas -> select anilist id where series=x
@@ -47,12 +46,11 @@ class MainRunner:
         self.createMetadata = createMetadata
 
     def execute(self, interactive=False):
-        numberOfNewChapters = 0
-        titlesForPushNotif: [str] = []
+        new_chapters: Set[Chapter] = set()
         dateScriptStart = datetime.datetime.now()
         # Globs chapters
         for chapterPathStr in glob.iglob(f"{self.sourceFolder}/*/*/*"):
-            self.logger.debug(f"Parsing: {chapterPathStr}")
+            self.logger.info(f"Parsing: {chapterPathStr}")
             # Inferring information from files
             chapterPath = Path(chapterPathStr)
             chapterName = html.unescape(chapterPath.name)
@@ -74,7 +72,9 @@ class MainRunner:
                 anilistId, chapterNumber
             )
             if not anilistId or anilistId is None:
-                foundAnilistId = self.findAnilistIdForSeries(seriesName, interactive=interactive)
+                foundAnilistId = self.findAnilistIdForSeries(
+                    seriesName, interactive=interactive
+                )
                 estimatedArchivePath = self.generateArchivePath(
                     foundAnilistId, chapterNumber
                 )
@@ -87,16 +87,19 @@ class MainRunner:
                 self.setupMetadata(chapterData)
                 self.compressChapter(chapterData)
                 self.insertInDatabase(chapterData)
-                numberOfNewChapters += 1
-                titlesForPushNotif.append(f'{seriesName} {chapterNumber}')
+                new_chapters.add(chapterData)
                 self.filesystem.deleteFolder(location=chapterPathStr)
             else:
                 self.logger.info("Source exists but chapter's already in db")
                 self.filesystem.deleteFolder(location=chapterPathStr)
-        if numberOfNewChapters > 0:
+        deleted_chapters = self.deleteReadChapters.execute()
+        for deleted_chapter in deleted_chapters:
+            if deleted_chapter in new_chapters:
+                new_chapters.remove(deleted_chapter)
+
+        if len(new_chapters) > 0:
             self.missingChapters.getGapsFromChaptersSince(dateScriptStart)
-            self.send_push(numberOfNewChapters, titlesForPushNotif)
-        self.deleteReadChapters.execute()
+            self.send_push(new_chapters)
 
     def generateArchivePath(self, anilistId, chapterNumber):
         return Path(self.archiveFolder).joinpath(f"{anilistId}/{chapterNumber}.cbz")
@@ -118,9 +121,8 @@ class MainRunner:
             str(chapter.sourcePath.resolve()),
         )
 
-    def send_push(self, number_of_chapters: int, titles: [str]):
-        base = f"{number_of_chapters} new chapters downloaded\n\n"
-        chapters_body = '\n'.join(titles)
-        self.pushNotification.sendPush(
-            base + chapters_body
-        )
+    def send_push(self, chapters: Set[Chapter]):
+        base = f"{len(chapters)} new chapters downloaded\n\n"
+        titles = map(lambda x: f"{x.seriesName} {x.chapterNumber}", chapters)
+        chapters_body = "\n".join(titles)
+        self.pushNotification.sendPush(base + chapters_body)

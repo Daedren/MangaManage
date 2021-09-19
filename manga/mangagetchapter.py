@@ -1,5 +1,4 @@
 from typing import Optional
-from collections import namedtuple
 from manga.gateways.anilist import TrackerGatewayInterface
 import os
 from pathlib import Path
@@ -21,7 +20,7 @@ class CalculateChapterName:
     def _getNewestFileIn(self, folder):
         list_of_files = glob.glob(
             folder + "/*"
-        )  # * means all if need specific format then *.csv
+        ) 
         latest_file = max(list_of_files, key=os.path.getctime)
         return Path(latest_file).stem
 
@@ -29,9 +28,11 @@ class CalculateChapterName:
         progress = self.anilist.getProgressFor(int(anilistId))
         return progress
 
-    """ Infers the chapter number from a chapter name
-        (chapter, volume, volChapter)"""
     def execute(self, chapterName, anilistId):
+        """ Infers the chapter number from a chapter name
+            (chapter, volume, volChapter)
+        """
+
         detectedChapter: Optional[str] = None
         
         chapterFunctions = [
@@ -46,21 +47,6 @@ class CalculateChapterName:
                 break
 
         return detectedChapter
-
-    #def __calcRealChapterNumber(self, anilistId: str, volume: str, volumeChapter: str) -> str:
-    #    volumeChapters = self.database.getVolumeChapters(anilistId)
-    #    # If it's the first chapter of a new volume: We eat it up. Last volume.maxchapter+1
-    #    # if it's the middle of a volume, volume.maxchapter + 1
-    #    volumeInt = int(volume)
-    #    chapterInt = float(volumeChapter)
-    #    #mapData = dict((v["volume"], v) for v in volumeChapters)
-    #    if volumeInt == 1:
-    #        return volumeChapter
-    #    
-    #    olderVolumes = filter(lambda x: int(x["volume"]) < volumeInt, volumeChapters)
-    #    allOldChapters = reduce(lambda x, y: x + y, olderVolumes)
-    #    
-    #    return str(allOldChapters + chapterInt)
 
     def __exNotation(self, chapterName: str, anilistId: int) -> Optional[str]:
         exRegex = r"^\#?ex\ -\ .*?([0-9]+)?"
@@ -95,11 +81,3 @@ class CalculateChapterName:
             if result:
                 return str(result) + ".8"
         return None
-
-    #def __defaultVolumeNotation(self, chapterName: str, anilistId: int):
-    #    volRegex = r"Vol\.\ ?([0-9]+\.?[0-9]*)\ Ch\.\ ?([0-9]+\.?[0-9]*)"
-    #    matchObj = re.search(volRegex, chapterName)
-    #    if matchObj:
-    #        result = matchObj.groups()
-    #        return self.VolAndChapter(result[0], result[1])
-    #    return None

@@ -50,7 +50,13 @@ class CheckGapsInChapters:
         for row in dbMapData.items():
             rowAnilistId = row[0]
             rowData = row[1]
-            realProgress = trackerMapData[rowAnilistId]["progress"]
+            trackerData = trackerMapData.get(rowAnilistId)
+            if trackerData is None:
+                self.logger.error(f"{rowAnilistId} not in tracker")
+                return
+            else:
+                realProgress = trackerMapData[rowAnilistId]["progress"]
+
             shouldLog: bool = (lastUpdatedMapData.get(rowAnilistId) is not None)
             if realProgress is None:
                 self.logger.info("no progress in Anilist for %s \n" % row[0])

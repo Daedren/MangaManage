@@ -1,3 +1,4 @@
+from manga.models.chapter import SimpleChapter
 from cross.decorators import Logger
 from manga.gateways.utils.databaseModels import AnilistSeries
 from manga.gateways.database import DatabaseGateway
@@ -27,7 +28,9 @@ class DeleteReadChapters:
         series = dict()
         for entry in entries:
             series[entry["media"]["id"]] = entry
-        # Remember that anilist only stores integers for chapter numbers!
+
+        deleted_chapters: [SimpleChapter] = []
+
         rows = self.database.getAllSeriesWithLocalFiles()
         row: AnilistSeries
         for row in rows:
@@ -51,6 +54,7 @@ class DeleteReadChapters:
             # Reminder: file deletion will only be permenant if they're synced
             for chap in chaptersToDelete:
                 chapterToDelete = chap["chapter"]
+                deleted_chapters.append(SimpleChapter(dbAnilistId, chapterToDelete))
                 self.logger.info(
                     "Deleting "
                     + dbSeries
@@ -63,3 +67,4 @@ class DeleteReadChapters:
                 self.filesystem.deleteArchive(dbAnilistId, chapterToDelete)
                 # self.filesystem.deleteOriginal(dbSeries, chapterToDelete)
                 self.database.deleteChapter(dbAnilistId, chapterToDelete)
+        return deleted_chapters
