@@ -1,7 +1,8 @@
 import http.client
-import sys
 import json
 from functools import reduce
+from typing import Mapping
+from models.tracker import TrackerSeries
 
 
 class TrackerGatewayInterface:
@@ -11,7 +12,7 @@ class TrackerGatewayInterface:
     def searchMediaBy(self, title):
         pass
 
-    def getAllEntries(self):
+    def getAllEntries(self) -> Mapping[int, TrackerSeries]:
         pass
 
 
@@ -19,8 +20,14 @@ class AnilistGateway(TrackerGatewayInterface):
     def __init__(self, authToken: str, userId: str) -> None:
         self.token = authToken
         self.userId = userId
+        self.cache = {}
 
     def __prepareRequest(self, query, variables):
+        query_key = (query, str(variables))
+        cache_value = self.cache.get(query_key)
+        if cache_value is not None:
+            return cache_value
+
         conn = http.client.HTTPSConnection("graphql.anilist.co")
         headers = {"Content-Type": "application/json", "Authorization": self.token}
 
@@ -31,6 +38,10 @@ class AnilistGateway(TrackerGatewayInterface):
         utfData = data.decode("utf-8")
 
         result = json.loads(utfData)
+
+        if res.status == 200:
+            self.cache[query_key] = result
+
         return result
 
     def getProgressFor(self, mediaId):
@@ -84,7 +95,7 @@ class AnilistGateway(TrackerGatewayInterface):
         ]
         return (media["id"], titles)
 
-    def getAllEntries(self):
+    def getAllEntries(self) -> Mapping[int, TrackerSeries]:
         query = """
       query($userId: Int) {
     MediaListCollection(userId: $userId, type: MANGA) {
@@ -119,13 +130,32 @@ class AnilistGateway(TrackerGatewayInterface):
         if errors is not None:
             print(result["errors"])
             return
+
+        # Merge all of the user's manga lists
         lists = result["data"]["MediaListCollection"]["lists"]
         mapped = map((lambda x: x["entries"]), lists)
         reduced = reduce((lambda x, y: x + y), mapped)
-        return reduced
 
-    if __name__ == "__main__":
-        if len(sys.argv) == 2:
-            print(getProgressFor(sys.argv[1]))
-        else:
-            print(getAllEntries())
+        models: [TrackerSeries] = []
+        for series in reduced:
+            main_titles = [
+                series["media"]["title"]["english"],
+                series["media"]["title"]["romaji"],
+            ]
+            all_titles = main_titles + series["media"]["synonyms"]
+            non_empty_all_titles = list(filter(None, all_titles))
+
+            models.append(
+                TrackerSeries(
+                    series["media"]["id"],
+                    non_empty_all_titles,
+                    series["media"]["status"],
+                    series["media"]["chapters"],
+                    series["media"]["countryOfOrigin"],
+                    series["progress"],
+                )
+            )
+
+        # Create anilist ID keyed dictionary
+        model_dictionary = dict((v.tracker_id, v) for v in models)
+        return model_dictionary

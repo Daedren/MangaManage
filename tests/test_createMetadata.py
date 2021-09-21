@@ -2,15 +2,19 @@
 import unittest
 from manga.createMetadata2 import CreateMetadata2
 from unittest.mock import MagicMock
-from manga.models.chapter import Chapter
+from models.manga import Chapter
+from models.tracker import TrackerSeries
+from manga.gateways.anilistFake import FakeAnilistGateway
+from manga.gateways.anilist import TrackerGatewayInterface
 from lxml.doctestcompare import LXMLOutputChecker, PARSE_XML
 from lxml import etree
 
 
 class TestCreateMetadata(unittest.TestCase):
     def setUp(self) -> None:
-        filesystem = MagicMock()
-        self.sut = CreateMetadata2(filesystem=filesystem)
+        self.filesystem = MagicMock()
+        self.tracker = TrackerGatewayInterface()
+        self.sut = CreateMetadata2(filesystem=self.filesystem, anilist=self.tracker)
         return super().setUp()
 
     def __assertXmlEqual(self, got, want):
@@ -28,13 +32,19 @@ class TestCreateMetadata(unittest.TestCase):
 
     def test_executeToString_default(self):
         fake = Chapter(
-            1000,
+            30002,
             "seriesN",
             "15",
             "chName",
             "/tmp/fstest/origin",
             "/tmp/fstest/destination",
         )
+
+        stub = TrackerSeries(
+            fake.anilistId, [fake.seriesName], "FINISHED", 30, "JP", 17
+        )
+        self.tracker.getAllEntries = MagicMock(return_value={fake.anilistId: stub})
+
         result = self.sut._CreateMetadata2__generateMetadata(fake)
         with open("tests/resources/createMetadata_1.xml", "rb") as xml_file:
             comparison = xml_file.read()
@@ -43,14 +53,18 @@ class TestCreateMetadata(unittest.TestCase):
 
     def test_executeToString_KRRegion_NoMangaField(self):
         fake = Chapter(
-            1000,
+            33194,
             "seriesN",
             "15",
             "chName",
             "/tmp/fstest/origin",
             "/tmp/fstest/destination",
-            countryOfOrigin="KR",
         )
+        stub = TrackerSeries(
+            fake.anilistId, [fake.seriesName], "FINISHED", 30, "KR", 17
+        )
+        self.tracker.getAllEntries = MagicMock(return_value={fake.anilistId: stub})
+
         result = self.sut._CreateMetadata2__generateMetadata(fake)
         with open("tests/resources/createMetadata_2.xml", "rb") as xml_file:
             comparison = xml_file.read()

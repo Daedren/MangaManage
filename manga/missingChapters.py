@@ -33,9 +33,8 @@ class CheckGapsInChapters:
         dbresult = self.database.getAllChapters()
         # dbresult = self.database.getAllChaptersOfSeriesUpdatedAfter(date)
         lastUpdatedSeries = self.database.getSeriesLastUpdatedSince(date)
-        trackerData = self.anilist.getAllEntries()
+        trackerMapData = self.anilist.getAllEntries()
 
-        trackerMapData = dict((v["media"]["id"], v) for v in trackerData)
         lastUpdatedMapData = dict((v["anilistId"], v) for v in lastUpdatedSeries)
         dbMapData = dict()
         for i in dbresult:
@@ -55,14 +54,14 @@ class CheckGapsInChapters:
                 self.logger.error(f"{rowAnilistId} not in tracker")
                 return
             else:
-                realProgress = trackerMapData[rowAnilistId]["progress"]
+                realProgress = trackerData.progress
 
             shouldLog: bool = (lastUpdatedMapData.get(rowAnilistId) is not None)
             if realProgress is None:
                 self.logger.info("no progress in Anilist for %s \n" % row[0])
                 return
 
-            titles = trackerMapData[rowAnilistId]["media"]["title"]
+            titles = trackerData.titles
 
             allChapters = list(map(lambda x: float(x["chapter"]), rowData))
             if self.__gapExistsInTrackerProgress(realProgress, allChapters):

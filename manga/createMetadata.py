@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-from manga.models.chapter import Chapter
+from models.manga import Chapter
 from cross.decorators import Logger
 from manga.gateways.filesystem import FilesystemInterface
 

@@ -12,7 +12,7 @@ from manga.createMetadata import CreateMetadataInterface
 from manga.gateways.pushover import PushServiceInterface
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.filesystem import FilesystemInterface
-from manga.models.chapter import Chapter
+from models.manga import Chapter
 
 # for each folder in sources
 # databas -> select anilist id where series=x
@@ -124,5 +124,6 @@ class MainRunner:
     def send_push(self, chapters: Set[Chapter]):
         base = f"{len(chapters)} new chapters downloaded\n\n"
         titles = map(lambda x: f"{x.seriesName} {x.chapterNumber}", chapters)
-        chapters_body = "\n".join(titles)
+        sorted_titles = sorted(titles)
+        chapters_body = "\n".join(sorted_titles)
         self.pushNotification.sendPush(base + chapters_body)

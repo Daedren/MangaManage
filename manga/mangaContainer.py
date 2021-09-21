@@ -34,7 +34,7 @@ class MangaContainer:
 
         parser = self.config["system"]["xmlParser"]
         if parser == "lxml":
-            self.createMetadata = CreateMetadata2(filesystem=self.filesystem)
+            self.createMetadata = CreateMetadata2(filesystem=self.filesystem, anilist=self.tracker)
         elif parser == "ElementTree":
             self.createMetadata = CreateMetadata(filesystem=self.filesystem)
 

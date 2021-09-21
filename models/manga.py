@@ -31,8 +31,7 @@ class Chapter(SimpleChapter):
         chapterNumber: str,
         chapterName: str,
         sourcePath: Path,
-        archivePath: Path,
-        countryOfOrigin: str = "JP",
+        archivePath: Path
     ):
         self.anilistId = anilistId
         self.seriesName = seriesName
@@ -40,4 +39,3 @@ class Chapter(SimpleChapter):
         self.chapterName = chapterName
         self.sourcePath = sourcePath
         self.archivePath = archivePath
-        self.countryOfOrigin = countryOfOrigin

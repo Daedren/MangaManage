@@ -1,4 +1,4 @@
-from manga.models.chapter import SimpleChapter
+from models.manga import SimpleChapter
 from cross.decorators import Logger
 from manga.gateways.utils.databaseModels import AnilistSeries
 from manga.gateways.database import DatabaseGateway
@@ -21,13 +21,9 @@ class DeleteReadChapters:
         self.anilist = anilist
         self.filesystem = filesystem
         self.database = database
-        pass
 
     def execute(self):
-        entries = self.anilist.getAllEntries()
-        series = dict()
-        for entry in entries:
-            series[entry["media"]["id"]] = entry
+        series = self.anilist.getAllEntries()
 
         deleted_chapters: [SimpleChapter] = []
 
@@ -40,10 +36,9 @@ class DeleteReadChapters:
             if anilistSeries is None:
                 self.logger.error("No series in anilist for %s" % dbAnilistId)
                 continue
-            lastReadChapter = series[dbAnilistId][
-                "progress"
-            ]  # Progress at anilist of series.
-            lastReleasedChapter = series[dbAnilistId]["media"]["chapters"]
+            # Progress at anilist of series.
+            lastReadChapter = anilistSeries.progress
+            lastReleasedChapter = anilistSeries.chapters
             if (
                 lastReleasedChapter == lastReadChapter
             ):  # Chapter is null if series is still releasing

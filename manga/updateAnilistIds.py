@@ -1,7 +1,8 @@
+from typing import Optional, Tuple
 from cross.decorators import Logger
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.anilist import AnilistGateway
-from typing import Optional, Tuple
+from models.tracker import TrackerSeries
 from .utils.pylev import levenschtein
 
 
@@ -12,55 +13,35 @@ class UpdateTrackerIds:
     def __init__(self, database: DatabaseGateway, anilist: AnilistGateway) -> None:
         self.anilist = anilist
         self.database = database
-        pass
 
-    def __tryTuple(self, entry, series, force=False, interactive=False) -> Optional[Tuple[str, str]]:
-        allDistancesText = ["", "", ""]
-        edistance = 999
-        sdistance = 999
+    def __tryTuple(
+        self, entry: TrackerSeries, series: str, force=False, interactive=False
+    ) -> Optional[Tuple[str, str]]:
+        series_to_match = series.lower()
+        bestMatch = ""
+        bestMatchDistance = 999
 
-        lowerRow = series.lower()
-        lowerR = entry["media"]["title"]["romaji"].lower()
-        rdistance = levenschtein(lowerRow, lowerR)
-        allDistancesText[0] = lowerR
-
-        if entry["media"]["title"]["english"] is not None:
-            lowerE = entry["media"]["title"]["english"].lower()
-            allDistancesText[1] = lowerE
-            edistance = levenschtein(lowerRow, lowerE)
-
-        if entry["media"]["synonyms"]:
-            for synonym in entry["media"]["synonyms"]:
-                lowerS = synonym.lower()
-                temp = min(sdistance, levenschtein(lowerRow, lowerS))
-                if temp < sdistance:
-                    sdistance = temp
-                    allDistancesText[2] = synonym
-
-        allDistances = [rdistance, edistance, sdistance]
+        for tracker_title in entry.titles:
+            prepped_title = tracker_title.lower()
+            rdistance = levenschtein(series_to_match, prepped_title)
+            if rdistance < bestMatchDistance:
+                bestMatch = prepped_title
+                bestMatchDistance = rdistance
 
         if force:
-            return (series, entry["media"]["id"])
+            return (series, entry.tracker_id)
 
-        if min(allDistances) <= 4:
-            rightName = allDistancesText[allDistances.index(min(allDistances))]
-            self.logger.info("found " + series + " - " + str(rightName))
-            return (series, entry["media"]["id"])
-        elif min(allDistances) < 10:
+        if bestMatchDistance <= 4:
+            self.logger.info(f'found "{bestMatch}"')
+            return (series, entry.tracker_id)
+        elif bestMatchDistance < 10:
             self.logger.info(
-                "possible match ("
-                + str(min(allDistances))
-                + ") "
-                + series
-                + " - "
-                + str(allDistancesText)
-                + " "
-                + str(entry["media"]["id"])
+                f"possible match at {bestMatchDistance} - {bestMatch} [{entry.tracker_id}]"
             )
             if interactive:
                 userValue = input("Enter Anilist ID: ")
-                return userValue
-            return None
+                return (series, userValue)
+        return None
 
     def updateFor(self, series, interactive=False) -> Optional[str]:
         self.logger.info("Updating for " + series)

@@ -33,13 +33,13 @@ class CheckForUpdates:
         allTrackerEntries = self.tracker.getAllEntries()
 
         runningSeries = filter(
-            lambda x: x["media"]["chapters"] is None, allTrackerEntries
+            lambda x: x.chapters is None, allTrackerEntries
         )
 
         # Perhaps should get anilistIDs from db, rather than API
         for series in runningSeries:
             time.sleep(2)
-            anilistId = series["media"]["id"]
+            anilistId = series.id
             dbInfo = self.database.getHighestChapterAndLastUpdatedForSeries(anilistId)
             if not dbInfo:
                 continue
@@ -59,7 +59,7 @@ class CheckForUpdates:
                     continue
                 if latestInDb < intReleaseNum:
                     print(
-                        f"{dbInfo['series']} ({dbInfo['anilistId']}) - has {latestInDb} in DB. Last read {series['progress']}. Latest chapter is {intReleaseNum}"
+                        f"{dbInfo['series']} ({dbInfo['anilistId']}) - has {latestInDb} in DB. Last read {series.progress}. Latest chapter is {intReleaseNum}"
                     )
             except ValueError:
                 continue
