@@ -46,7 +46,7 @@ class UpdateTrackerIds:
     def updateFor(self, series, interactive=False) -> Optional[str]:
         self.logger.info("Updating for " + series)
         entries = self.anilist.getAllEntries()
-        for entry in entries:
+        for entry in entries.values():
             result = self.__tryTuple(entry, series, interactive=interactive)
             if result is not None:
                 self.database.insertTracking(result[0], result[1])
