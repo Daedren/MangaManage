@@ -19,6 +19,11 @@ class FilesystemInterface:
         pass
 
     def getQuarantinedSeries(self):
+        
+        
+        
+        
+        
         pass
 
     def saveFile(self, stringData: str, filepath: Path):
@@ -98,6 +103,7 @@ class FilesystemGateway(FilesystemInterface):
 
     def quarantineSeries(self, anilistId: str):
         archiveSeriesPath = Path.joinpath(self.archiveRootPath, f"{anilistId}")
+        
         quarantineSeriesPath = Path.joinpath(self.quarantineFolder, f"{anilistId}")
         
         if not archiveSeriesPath.exists():
