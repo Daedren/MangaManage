@@ -11,6 +11,13 @@ Helps managing stuff downloaded from Tachiyomi.
 - Can check if there's a more recent manga release on MangaUpdates than the latest one archived. Good to know if a source has been slacking off.
   - TODO: Cache it
 
+# Future plans
+Nothing really.
+- Perhaps upscale if some scans are found to be of bad resolution.
+- Information about missing chapters in the push notification
+- Perhaps make the archive folder have series' names again for those who read directly from the cbz folders
+  - Or provide a folder with symlinks/hardlinks
+
 # Usage
 - Set appropriate variables and folder paths in settings.ini
 - Install dependencies (`pip install -r requirements.txt`)
