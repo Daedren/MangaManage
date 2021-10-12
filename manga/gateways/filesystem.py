@@ -145,7 +145,7 @@ class FilesystemGateway(FilesystemInterface):
     def compress_chapter(self, archive_path: Path, source_path: Path):
         archive_path.parent.mkdir(parents=True, exist_ok=True)
         destination = archive_path.resolve()
-        ziphandler = zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED)
+        ziphandler = zipfile.ZipFile(destination, "w", zipfile.ZIP_STORED)
         path = source_path.resolve()
         for root, dirs, files in os.walk(path):
             for file in files:
