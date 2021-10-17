@@ -15,6 +15,7 @@ Helps managing stuff downloaded from Tachiyomi.
 Nothing really.
 - Perhaps upscale if some scans are found to be of bad resolution.
 - Information about missing chapters in the push notification
+- Fill in 'AlternativeSeries' in the metadata. Especially useful when looking up the exact name on Anilist.
 - Perhaps make the archive folder have series' names again for those who read directly from the cbz folders
   - Or provide a folder with symlinks/hardlinks
 
