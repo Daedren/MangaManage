@@ -22,13 +22,14 @@ class TestCreateMetadata(unittest.TestCase):
         self.assertTrue(checker.check_output(want, got, PARSE_XML))
 
     def __assertXmlMatchesComicInfo(self, result):
+        matches = False
         with open("tests/resources/ComicInfo.xsd", "rb") as xsd_file:
             schemaContent = xsd_file.read()
             root = etree.XML(schemaContent)
             schema = etree.XMLSchema(root)
             parser = etree.XMLParser(schema=schema)
-            return etree.fromstring(result, parser)
-        return False
+            matches = etree.fromstring(result, parser) is not None
+        self.assertTrue(matches)
 
     def test_executeToString_default(self):
         fake = Chapter(
@@ -67,6 +68,27 @@ class TestCreateMetadata(unittest.TestCase):
 
         result = self.sut._CreateMetadata2__generateMetadata(fake)
         with open("tests/resources/createMetadata_2.xml", "rb") as xml_file:
+            comparison = xml_file.read()
+            self.__assertXmlEqual(result, comparison)
+            self.__assertXmlMatchesComicInfo(result)
+
+    def test_executeToString_otherTitlesExist_altSeriesIsSet(self):
+        fake = Chapter(
+            33194,
+            "seriesN",
+            "15",
+            "chName",
+            "/tmp/fstest/origin",
+            "/tmp/fstest/destination",
+        )
+        second_series_name = "other series"
+        stub = TrackerSeries(
+            fake.anilistId, [fake.seriesName, second_series_name], "FINISHED", 30, "KR", 17
+        )
+        self.tracker.getAllEntries = MagicMock(return_value={fake.anilistId: stub})
+
+        result = self.sut._CreateMetadata2__generateMetadata(fake)
+        with open("tests/resources/createMetadata_3.xml", "rb") as xml_file:
             comparison = xml_file.read()
             self.__assertXmlEqual(result, comparison)
             self.__assertXmlMatchesComicInfo(result)

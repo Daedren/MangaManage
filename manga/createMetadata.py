@@ -36,8 +36,5 @@ class CreateMetadata(CreateMetadataInterface):
         ET.SubElement(root, "Title").text = chapter.chapterName
         ET.SubElement(root, "Number").text = chapter.chapterNumber
 
-        if chapter.countryOfOrigin == "JP":
-            ET.SubElement(root, "Manga").text = "YesAndRightToLeft"
-
         tree = ET.ElementTree(root)
         return tree
