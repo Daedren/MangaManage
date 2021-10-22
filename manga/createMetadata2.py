@@ -1,3 +1,4 @@
+import string
 from typing import Optional
 from lxml import etree
 from models.manga import Chapter
@@ -29,6 +30,7 @@ class CreateMetadata2(CreateMetadataInterface):
         etree.SubElement(root, "Series").text = chapter.seriesName
         etree.SubElement(root, "Number").text = chapter.chapterNumber
         if alt_series:
+            self.logger.debug(f"Alt series name: {alt_series}")
             etree.SubElement(root, "AlternateSeries").text = alt_series
         if country == "JP":
             etree.SubElement(root, "Manga").text = "YesAndRightToLeft"
@@ -37,10 +39,10 @@ class CreateMetadata2(CreateMetadataInterface):
         )
         # xmlAsStr =  etree.tostring(root, pretty_print=True, encoding=str)
         # return f'<?xml version="1.0" encoding="utf-8"?>\n{xmlAsStr}'
-    
+
     def __getCountryForChapter(self, chapter: Chapter) -> Optional[str]:
         tracker_data = self.anilist.getAllEntries()
-        
+
         current_series = tracker_data.get(chapter.anilistId)
         if current_series is not None:
             return current_series.country_of_origin
@@ -48,10 +50,25 @@ class CreateMetadata2(CreateMetadataInterface):
 
     def __getAltSeriesForChapter(self, chapter: Chapter) -> Optional[str]:
         tracker_data = self.anilist.getAllEntries()
-        
+
         current_series = tracker_data.get(chapter.anilistId)
         if current_series is not None:
             titles = current_series.titles
-            new_title = next((x for x in titles if x != chapter.seriesName), None)
+            new_title = next(
+                (
+                    x
+                    for x in titles
+                    if CreateMetadata2.simplify_str(x)
+                    != CreateMetadata2.simplify_str(chapter.seriesName)
+                ),
+                None,
+            )
             return new_title
         return None
+
+    @staticmethod
+    def simplify_str(value: str) -> str:
+        result = value
+        for char in string.punctuation:
+            result = result.replace(char, " ")
+        return result.lower()
