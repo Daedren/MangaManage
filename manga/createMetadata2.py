@@ -69,6 +69,6 @@ class CreateMetadata2(CreateMetadataInterface):
     @staticmethod
     def simplify_str(value: str) -> str:
         result = value
-        for char in string.punctuation:
-            result = result.replace(char, " ")
+        for char in string.punctuation + string.whitespace:
+            result = result.replace(char, "")
         return result.lower()

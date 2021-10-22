@@ -15,6 +15,15 @@ class TestCreateMetadata(unittest.TestCase):
         self.filesystem = MagicMock()
         self.tracker = TrackerGatewayInterface()
         self.sut = CreateMetadata2(filesystem=self.filesystem, anilist=self.tracker)
+        
+        self.baseFake = Chapter(
+            33194,
+            "seriesN",
+            "15",
+            "chName",
+            "/tmp/fstest/origin",
+            "/tmp/fstest/destination",
+        )
         return super().setUp()
 
     def __assertXmlEqual(self, got, want):
@@ -32,15 +41,7 @@ class TestCreateMetadata(unittest.TestCase):
         self.assertTrue(matches)
 
     def test_executeToString_default(self):
-        fake = Chapter(
-            30002,
-            "seriesN",
-            "15",
-            "chName",
-            "/tmp/fstest/origin",
-            "/tmp/fstest/destination",
-        )
-
+        fake = self.baseFake
         stub = TrackerSeries(
             fake.anilistId, [fake.seriesName], "FINISHED", 30, "JP", 17
         )
@@ -53,14 +54,7 @@ class TestCreateMetadata(unittest.TestCase):
             self.__assertXmlMatchesComicInfo(result)
 
     def test_executeToString_KRRegion_NoMangaField(self):
-        fake = Chapter(
-            33194,
-            "seriesN",
-            "15",
-            "chName",
-            "/tmp/fstest/origin",
-            "/tmp/fstest/destination",
-        )
+        fake = self.baseFake
         stub = TrackerSeries(
             fake.anilistId, [fake.seriesName], "FINISHED", 30, "KR", 17
         )
@@ -73,15 +67,10 @@ class TestCreateMetadata(unittest.TestCase):
             self.__assertXmlMatchesComicInfo(result)
 
     def test_executeToString_otherTitlesExist_altSeriesIsSet(self):
-        fake = Chapter(
-            33194,
-            "seriesN",
-            "15",
-            "chName",
-            "/tmp/fstest/origin",
-            "/tmp/fstest/destination",
-        )
         second_series_name = "other series"
+
+        fake = self.baseFake
+
         stub = TrackerSeries(
             fake.anilistId, [fake.seriesName, second_series_name], "FINISHED", 30, "KR", 17
         )
@@ -94,16 +83,10 @@ class TestCreateMetadata(unittest.TestCase):
             self.__assertXmlMatchesComicInfo(result)
     
     def test_getAltSeriesForChapter_differentCase_dontMatch(self):
+        fake = self.baseFake
         different_case_series = "seriesn"
         second_series_name = "other series"
-        fake = Chapter(
-            33194,
-            "seriesN",
-            "15",
-            "chName",
-            "/tmp/fstest/origin",
-            "/tmp/fstest/destination",
-        )
+
         stub = TrackerSeries(
             fake.anilistId, [different_case_series, second_series_name], "FINISHED", 30, "KR", 17
         )
@@ -114,16 +97,28 @@ class TestCreateMetadata(unittest.TestCase):
         self.assertEqual(result, second_series_name)
 
     def test_getAltSeriesForChapter_differentPunctuation_dontMatch(self):
+        fake = self.baseFake
         different_case_series = "series N"
         second_series_name = "other series"
-        fake = Chapter(
-            33194,
-            "series.N",
-            "15",
-            "chName",
-            "/tmp/fstest/origin",
-            "/tmp/fstest/destination",
+
+        fake.seriesName = "series.N"
+
+        stub = TrackerSeries(
+            fake.anilistId, [different_case_series, second_series_name], "FINISHED", 30, "KR", 17
         )
+        self.tracker.getAllEntries = MagicMock(return_value={fake.anilistId: stub})
+        
+        result = self.sut._CreateMetadata2__getAltSeriesForChapter(fake)
+        
+        self.assertEqual(result, second_series_name)
+
+    def test_getAltSeriesForChapter_differentWhitespace_dontMatch(self):
+        fake = self.baseFake
+        different_case_series = " series N"
+        second_series_name = "other series"
+
+        fake.seriesName = "series N"
+
         stub = TrackerSeries(
             fake.anilistId, [different_case_series, second_series_name], "FINISHED", 30, "KR", 17
         )
