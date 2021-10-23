@@ -23,7 +23,7 @@ Nothing really, some ideas:
 - Install dependencies (`pip install -r requirements.txt`)
 - Just run it (`python3 .`) with the manga inside the `sourcefolder` with the same folder structure that Tachiyomi leaves the downloads at.
 
-Alternatively there's a Dockerfile available.
+Alternatively there's a Dockerfile and image available at [Docker Hub](https://hub.docker.com/r/raikon/mangamanage)
 
 There are some additional flags to run only some parts of the code, or to assist in some other manner, though they're not essential.
 
