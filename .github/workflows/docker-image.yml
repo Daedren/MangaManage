@@ -18,5 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Lowercase repository name
+      run: |
+        echo "LOWER_REPO=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag mangamanage:${{ env.versionNumber }}
+      run: docker build . --file Dockerfile --tag ${{ env.LOWER_REPO }}:${{ env.versionNumber }}
+    - name: Push to Docker Hub
+      run: docker push ${{ env.LOWER_REPO }}
