@@ -34,10 +34,10 @@ jobs:
     - name: Push version tag to Docker Hub
       run: |
         IMAGE_NAME=${{ env.DOCKER_USER }}/${{ env.JUST_REPO_NAME }}:${{ env.VERSION_NUMBER }}
-        docker image tag myimage $IMAGE_NAME
+        docker image tag builtimage $IMAGE_NAME
         docker push $IMAGE_NAME
     - name: Push latest tag to Docker Hub
       run: |
         IMAGE_NAME=${{ env.DOCKER_USER }}/${{ env.JUST_REPO_NAME }}:latest
-        docker image tag myimage $IMAGE_NAME
+        docker image tag builtimage $IMAGE_NAME
         docker push $IMAGE_NAME
