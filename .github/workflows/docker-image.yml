@@ -11,7 +11,9 @@ on:
         required: true
         
 env:
-  versionNumber: ${{ github.event.release.tag_name || github.event.inputs.input_version }}
+  VERSION_NUMBER: ${{ github.event.release.tag_name || github.event.inputs.input_version }}
+  DOCKER_USER: ${{ secrets.DOCKER_USER }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
 jobs:
   build:
@@ -26,6 +28,6 @@ jobs:
         echo "JUST_REPO_NAME=$(echo '${{ env.LOWER_REPO }}' | awk -F '/' '{print $2}')" >> $GITHUB_ENV      
       shell: bash
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag ${{ env.DOCKER_USER }}/${{ env.JUST_REPO_NAME }}:${{ env.versionNumber }}
+      run: docker build . --file Dockerfile --tag ${{ env.DOCKER_USER }}/${{ env.JUST_REPO_NAME }}:${{ env.VERSION_NUMBER }}
     - name: Push to Docker Hub
-      run: docker push ${{ env.DOCKER_USER }}/${{ env.JUST_REPO_NAME }}:${{ env.versionNumber }}
+      run: docker push ${{ env.DOCKER_USER }}/${{ env.JUST_REPO_NAME }}:${{ env.VERSION_NUMBER }}
