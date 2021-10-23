@@ -1,0 +1,22 @@
+name: Publish Docker image
+
+on:  
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      input_version:
+        description: "Version to publish"
+        required: true
+        
+env:
+  versionNumber: ${{ github.event.release.tag_name || github.event.inputs.input_version }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag MangaManage:${{ github.event.release.tag_name }}
