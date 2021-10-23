@@ -24,4 +24,4 @@ jobs:
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag ${{ env.LOWER_REPO }}:${{ env.versionNumber }}
     - name: Push to Docker Hub
-      run: docker push ${{ env.LOWER_REPO }}
+      run: docker push ${{ env.LOWER_REPO }}:${{ env.versionNumber }}
