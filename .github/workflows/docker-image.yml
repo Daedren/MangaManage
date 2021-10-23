@@ -19,4 +19,4 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag MangaManage:${{ github.event.release.tag_name }}
+      run: docker build . --file Dockerfile --tag mangamanage:${{ env.versionNumber }}
