@@ -23,7 +23,7 @@ jobs:
         echo "LOWER_REPO=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
     - name: Get repository name without owner
       run: |
-        echo "JUST_REPO_NAME=$(echo '${{ github.repository }}' | awk -F '/' '{print $2}')" >> $GITHUB_ENV      
+        echo "JUST_REPO_NAME=$(echo '${{ env.LOWER_REPO }}' | awk -F '/' '{print $2}')" >> $GITHUB_ENV      
       shell: bash
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag ${{ env.DOCKER_USER }}/${{ env.JUST_REPO_NAME }}:${{ env.versionNumber }}
