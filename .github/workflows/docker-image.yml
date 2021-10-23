@@ -27,7 +27,11 @@ jobs:
       run: |
         echo "JUST_REPO_NAME=$(echo '${{ env.LOWER_REPO }}' | awk -F '/' '{print $2}')" >> $GITHUB_ENV      
       shell: bash
+    - name: Login to Docker Hub
+      run: docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag ${{ env.DOCKER_USER }}/${{ env.JUST_REPO_NAME }}:${{ env.VERSION_NUMBER }}
-    - name: Push to Docker Hub
+    - name: Push version tag to Docker Hub
       run: docker push ${{ env.DOCKER_USER }}/${{ env.JUST_REPO_NAME }}:${{ env.VERSION_NUMBER }}
+    - name: Push latest tag to Docker Hub
+      run: docker push ${{ env.DOCKER_USER }}/${{ env.JUST_REPO_NAME }}:latest
