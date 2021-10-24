@@ -1,7 +1,9 @@
 # MangaManage
 
 Helps managing stuff downloaded from Tachiyomi.
+
 Why? I enjoy Tachiyomi's very well maintained sources, yet want to read on the computer or iPad instead.
+
 This allows for a completely hands-off management of Tachi downloads, to be consumed cross-platform.
 
 # Features
