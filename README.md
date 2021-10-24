@@ -1,6 +1,8 @@
 # MangaManage
 
 Helps managing stuff downloaded from Tachiyomi.
+Why? I enjoy Tachiyomi's very well maintained sources, yet want to read on the computer or iPad instead.
+This allows for a completely hands-off management of Tachi downloads, to be consumed cross-platform.
 
 # Features
 - Grabs a folder of Tachiyomi downloads, converts them to .cbz with accompanying ComicInfo.xml with its metadata.
@@ -15,8 +17,8 @@ Helps managing stuff downloaded from Tachiyomi.
 Nothing really, some ideas:
 - Perhaps upscale if some scans are found to be of bad resolution.
 - Information about missing chapters and errors in the push notification
-- Perhaps make the archive folder have series' names again for those who read directly from the cbz folders
-  - Or provide a folder with symlinks/hardlinks
+- Perhaps make the archive folder have series' names again to make the CBZ folders "human readable"
+  - Or provide a folder with symlinks/hardlinks?
 
 # Usage
 - Set appropriate variables and folder paths in settings.ini
