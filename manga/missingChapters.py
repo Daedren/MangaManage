@@ -45,7 +45,7 @@ class CheckGapsInChapters:
                 dbMapData[i["anilistId"]].append(i)
 
         newQuarantineList = list()
-        newQuarantineAnilist = list()
+        allQuarantineAnilist = list()
 
         for row in dbMapData.items():
             rowAnilistId = row[0]
@@ -57,7 +57,7 @@ class CheckGapsInChapters:
             else:
                 realProgress = trackerData.progress
 
-            shouldLog: bool = (lastUpdatedMapData.get(rowAnilistId) is not None)
+            series_in_date: bool = (lastUpdatedMapData.get(rowAnilistId) is not None)
             if realProgress is None:
                 self.logger.info("no progress in Anilist for %s \n" % row[0])
                 return
@@ -68,26 +68,27 @@ class CheckGapsInChapters:
                 rowAnilistId, titles[0], min(allChapters), realProgress)
 
             if self.__gapExistsInTrackerProgress(realProgress, allChapters):
-                if shouldLog:
+                if series_in_date:
                     self.logger.info(
                         "{} - Last read at {}, but only {} is in DB".format(
                             titles, realProgress, min(allChapters)
                         )
                     )
-                newQuarantineAnilist.append(rowAnilistId)
-                newQuarantineList.append(current_series)
+                    newQuarantineList.append(current_series)
+                allQuarantineAnilist.append(rowAnilistId)
                 continue
 
             noGapsInChapters = self.__checkConsecutive(
-                allChapters, titlesForLogging=titles, shouldLog=shouldLog
+                allChapters, titlesForLogging=titles, shouldLog=series_in_date
             )
             if not noGapsInChapters:
-                newQuarantineAnilist.append(rowAnilistId)
-                newQuarantineList.append(current_series)
+                allQuarantineAnilist.append(rowAnilistId)
+                if series_in_date:
+                    newQuarantineList.append(current_series)
 
-        self.__checkQuarantines(newQuarantineAnilist)
+        self.__checkQuarantines(allQuarantineAnilist)
 
-        for anilistId in newQuarantineAnilist:
+        for anilistId in allQuarantineAnilist:
             self.filesystem.quarantineSeries(anilistId=anilistId)
 
         # limitedByDate = filter(lambda x: x[3] > datetime, newQuarantineList)
