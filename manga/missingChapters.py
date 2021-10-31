@@ -122,7 +122,8 @@ class CheckGapsInChapters:
     def __gapExistsInTrackerProgress(
         self, trackerProgress: int, chapters: list
     ) -> bool:
-        "Checks if the lowest chapter we have is right after the last one in the tracker"
+        """Checks if the lowest chapter we have
+        is right after the last one in the tracker"""
         return round(trackerProgress - min(chapters), 1) < -1.1
 
     def __getNoLongerQuarantined(

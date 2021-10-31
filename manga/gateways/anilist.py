@@ -1,7 +1,7 @@
 import http.client
 import json
 from functools import reduce
-from typing import Mapping
+from typing import List, Mapping
 from models.tracker import TrackerSeries
 
 
@@ -136,7 +136,7 @@ class AnilistGateway(TrackerGatewayInterface):
         mapped = map((lambda x: x["entries"]), lists)
         reduced = reduce((lambda x, y: x + y), mapped)
 
-        models: [TrackerSeries] = []
+        models: List[TrackerSeries] = []
         for series in reduced:
             main_titles = [
                 series["media"]["title"]["english"],

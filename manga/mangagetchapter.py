@@ -20,7 +20,7 @@ class CalculateChapterName:
     def _getNewestFileIn(self, folder):
         list_of_files = glob.glob(
             folder + "/*"
-        ) 
+        )
         latest_file = max(list_of_files, key=os.path.getctime)
         return Path(latest_file).stem
 
@@ -34,13 +34,13 @@ class CalculateChapterName:
         """
 
         detectedChapter: Optional[str] = None
-        
+
         chapterFunctions = [
             self.__exNotation,
             self.__defaultChapterNotation,
             self.__anyOtherNumberNotation
         ]
-        
+
         for func in chapterFunctions:
             detectedChapter = func(chapterName, anilistId)
             if detectedChapter is not None:
@@ -57,14 +57,18 @@ class CalculateChapterName:
                 return str(result) + ".8"
         return None
 
-    def __defaultChapterNotation(self, chapterName: str, anilistId: int) -> Optional[str]:
+    def __defaultChapterNotation(self,
+                                 chapterName: str,
+                                 anilistId: int) -> Optional[str]:
         chRegex = r"Ch\.\ ?([0-9]+\.?[0-9]*)"
         matchObj = re.search(chRegex, chapterName)
         if matchObj:
             return matchObj.group(1).lstrip("0") or "0"
         return None
 
-    def __anyOtherNumberNotation(self, chapterName: str, anilistId: int) -> Optional[str]:
+    def __anyOtherNumberNotation(self,
+                                 chapterName: str,
+                                 anilistId: int) -> Optional[str]:
         largeNumRegex = r"[0-9]+\.?[0-9]*"
         matchObj = re.findall(largeNumRegex, chapterName)
         if matchObj:

@@ -3,14 +3,14 @@ import os
 from pathlib import Path
 from anilist.database import getAnilistIDForSeries
 
-archivePath="/mdata/archive"
-newArchivePath="/mdata/newarchive"
+archivePath = "/mdata/archive"
+newArchivePath = "/mdata/newarchive"
 
 conn = sqlite3.connect('./manga.db')
 
 if __name__ == "__main__":
-    archiveFolder=Path(archivePath)
-    archiveGlob=Path(archivePath).glob('*')
+    archiveFolder = Path(archivePath)
+    archiveGlob = Path(archivePath).glob('*')
     for file in archiveGlob:
         folderName = Path(file).name
         print(folderName)

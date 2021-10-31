@@ -19,21 +19,27 @@ def main(
     updateTrackerIds: UpdateTrackerIds,
     checkForUpdates: CheckForUpdates,
 ):
-    parser = argparse.ArgumentParser("Running without arguments does the normal program execution, taking care of new chapters, etc")
+    parser = argparse.ArgumentParser(
+        ("Running without arguments does the normal program execution, ",
+         "taking care of new chapters, etc"))
     parser.add_argument(
         "--checkMissingSQL",
         action="store_true",
-        help="Detects chapters in filesystem that aren't in database. --force fixes them",
+        help=("Detects chapters in filesystem that aren't in database.",
+              "--force fixes them"),
     )
     parser.add_argument(
         "--checkMissingChapters",
         action="store_true",
-        help="Prints missing chapters from downloaded series. This checks all series, while normal execution only checks those updated",
+        help=("Prints missing chapters from downloaded series.",
+              "This checks all series, while normal execution",
+              " only checks those updated"),
     )
     parser.add_argument(
         "--mangaUpdates",
         action="store_true",
-        help="Cross-checks MangaUpdates to see if there are new chapters released we don't have",
+        help=("Cross-checks MangaUpdates to see if there ",
+              "are new chapters released we don't have"),
     )
     parser.add_argument(
         "--updateIds",
@@ -47,7 +53,8 @@ def main(
     parser.add_argument(
         "--interactive",
         action="store_true",
-        help="May ask for user interaction at times where the program would otherwise stop",
+        help=("May ask for user interaction",
+              "at times where the program would otherwise stop"),
     )
 
     args = parser.parse_args()

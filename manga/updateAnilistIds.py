@@ -36,7 +36,8 @@ class UpdateTrackerIds:
             return (series, entry.tracker_id)
         elif bestMatchDistance < 10:
             self.logger.info(
-                f"possible match at {bestMatchDistance} - {bestMatch} [{entry.tracker_id}]"
+                (f"possible match at {bestMatchDistance}",
+                 f" - {bestMatch} [{entry.tracker_id}]")
             )
             if interactive:
                 userValue = input("Enter Anilist ID: ")

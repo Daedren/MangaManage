@@ -43,7 +43,7 @@ class DeleteReadChapters:
             lastReleasedChapter = anilistSeries.chapters
             if lastReleasedChapter == lastReadChapter:
                 completion = True
-                lastReadChapter += 30 # Making sure to delete all stored chapters
+                lastReadChapter += 30  # Making sure to delete all stored chapters
             chaptersToDelete = self.database.getChaptersForSeriesBeforeNumber(
                 dbAnilistId, lastReadChapter
             )

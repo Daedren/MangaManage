@@ -59,7 +59,9 @@ class CheckForUpdates:
                     continue
                 if latestInDb < intReleaseNum:
                     print(
-                        f"{dbInfo['series']} ({dbInfo['anilistId']}) - has {latestInDb} in DB. Last read {series.progress}. Latest chapter is {intReleaseNum}"
+                        (f"{dbInfo['series']} ({dbInfo['anilistId']})",
+                         " - has {latestInDb} in DB. Last read {series.progress}. ",
+                         "Latest chapter is {intReleaseNum}")
                     )
             except ValueError:
                 continue

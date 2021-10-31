@@ -132,7 +132,12 @@ class DatabaseGateway:
                         WHERE a.active = 1"""
         )
         rows = cur.fetchall()
-        return map(lambda a: AnilistSeries(a["anilistId"], a["series"], a["mangaUpdatesId"]), rows)
+        return map(lambda a:
+                   AnilistSeries(
+                       a["anilistId"],
+                       a["series"],
+                       a["mangaUpdatesId"]),
+                   rows)
 
     def getAllSeries(self) -> List[AnilistSeries]:
         cur = self.__getCursor()
@@ -142,7 +147,12 @@ class DatabaseGateway:
             """
         )
         rows = cur.fetchall()
-        return map(lambda a: AnilistSeries(a["anilistId"], a["series"], a["mangaUpdatesId"]), rows)
+        return map(lambda a:
+                   AnilistSeries(
+                       a["anilistId"],
+                       a["series"],
+                       a["mangaUpdatesId"]),
+                   rows)
 
     def getAllSeriesWithoutTrackerIds(self) -> List[str]:
         cur = self.__getCursor()
@@ -242,8 +252,7 @@ class DatabaseGateway:
         ON a.series = b.series
         WHERE anilistId = ? AND a.active = 1
         GROUP BY anilistId;
-                        """
-        , (anilistId,))
+                        """, (anilistId,))
         return cur.fetchone()
 
     def getAllChaptersOfSeriesUpdatedAfter(self, lastUpdated: datetime):
@@ -277,7 +286,7 @@ class DatabaseGateway:
         rows = cur.fetchall()
         return rows
 
-    #def getVolumeChapters(self, anilistId):
+    # def getVolumeChapters(self, anilistId):
     #    cur = self.__getCursor()
     #    cur.execute(
     #        """SELECT volume, MAX(volumeChapter) FROM manga a
