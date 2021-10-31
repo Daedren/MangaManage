@@ -3,6 +3,7 @@ import datetime
 from manga.gateways.anilist import AnilistGateway
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.filesystem import FilesystemInterface
+from models.manga import MissingChapter
 from cross.decorators import Logger
 import os
 
@@ -62,8 +63,10 @@ class CheckGapsInChapters:
                 return
 
             titles = trackerData.titles
-
             allChapters = list(map(lambda x: float(x["chapter"]), rowData))
+            current_series = MissingChapter(
+                rowAnilistId, titles[0], min(allChapters), realProgress)
+
             if self.__gapExistsInTrackerProgress(realProgress, allChapters):
                 if shouldLog:
                     self.logger.info(
@@ -72,7 +75,7 @@ class CheckGapsInChapters:
                         )
                     )
                 newQuarantineAnilist.append(rowAnilistId)
-                newQuarantineList.append(row)
+                newQuarantineList.append(current_series)
                 continue
 
             noGapsInChapters = self.__checkConsecutive(
@@ -80,7 +83,7 @@ class CheckGapsInChapters:
             )
             if not noGapsInChapters:
                 newQuarantineAnilist.append(rowAnilistId)
-                newQuarantineList.append(row)
+                newQuarantineList.append(current_series)
 
         self.__checkQuarantines(newQuarantineAnilist)
 
@@ -88,10 +91,10 @@ class CheckGapsInChapters:
             self.filesystem.quarantineSeries(anilistId=anilistId)
 
         # limitedByDate = filter(lambda x: x[3] > datetime, newQuarantineList)
-        return newQuarantineAnilist
+        return newQuarantineList
 
     def __checkQuarantines(self, newQuarantineList: list):
-        """If a series isn't listed in the updated quarantine list. Remove it"""
+        "If a series isn't listed in the updated quarantine list. Remove it"
         quarantinedSeries = self.filesystem.getQuarantinedSeries()
         noLongerQuarantined = self.__getNoLongerQuarantined(
             quarantinedSeries, newQuarantineList
@@ -119,6 +122,7 @@ class CheckGapsInChapters:
     def __gapExistsInTrackerProgress(
         self, trackerProgress: int, chapters: list
     ) -> bool:
+        "Checks if the lowest chapter we have is right after the last one in the tracker"
         return round(trackerProgress - min(chapters), 1) < -1.1
 
     def __getNoLongerQuarantined(

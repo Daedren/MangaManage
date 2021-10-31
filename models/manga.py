@@ -39,3 +39,17 @@ class Chapter(SimpleChapter):
         self.chapterName = chapterName
         self.sourcePath = sourcePath
         self.archivePath = archivePath
+
+
+class MissingChapter:
+    def __init__(
+        self,
+        tracker_id: str,
+        series_name: str,
+        stored_chapter: str,
+        tracker_chapter: str,
+    ) -> None:
+        self.tracker_id = tracker_id
+        self.series_name = series_name
+        self.stored_chapter = stored_chapter
+        self.tracker_chapter = tracker_chapter

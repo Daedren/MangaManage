@@ -1,7 +1,7 @@
 import datetime
 import glob
 import html
-from typing import Optional, Set
+from typing import List, Optional, Set
 from pathlib import Path
 from cross.decorators import Logger
 from manga.updateAnilistIds import UpdateTrackerIds
@@ -12,7 +12,7 @@ from manga.createMetadata import CreateMetadataInterface
 from manga.gateways.pushover import PushServiceInterface
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.filesystem import FilesystemInterface
-from models.manga import Chapter
+from models.manga import Chapter, MissingChapter
 
 # for each folder in sources
 # databas -> select anilist id where series=x
@@ -46,60 +46,66 @@ class MainRunner:
         self.createMetadata = createMetadata
 
     def execute(self, interactive=False):
-        new_chapters: Set[Chapter] = set()
-        dateScriptStart = datetime.datetime.now()
-        # Globs chapters
-        for chapterPathStr in glob.iglob(f"{self.sourceFolder}/*/*/*"):
-            self.logger.info(f"Parsing: {chapterPathStr}")
-            # Inferring information from files
-            chapterPath = Path(chapterPathStr)
-            chapterName = html.unescape(chapterPath.name)
-            seriesName = html.unescape(chapterPath.parent.name)
-            anilistId = self.database.getAnilistIDForSeries(seriesName)
-            chapterNumber = self.calcChapterName.execute(chapterName, anilistId)
-            estimatedArchivePath = self.generateArchivePath(anilistId, chapterNumber)
-            chapterData = Chapter(
-                anilistId,
-                seriesName,
-                chapterNumber,
-                chapterName,
-                chapterPath,
-                estimatedArchivePath,
-            )
-            self.logger.debug(f"Already had tracker ID: {anilistId}")
-
-            isChapterOnDB = self.database.doesExistChapterAndAnilist(
-                anilistId, chapterNumber
-            )
-            if not anilistId or anilistId is None:
-                foundAnilistId = self.findAnilistIdForSeries(
-                    seriesName, interactive=interactive
-                )
+        try:
+            new_chapters: Set[Chapter] = set()
+            dateScriptStart = datetime.datetime.now()
+            # Globs chapters
+            for chapterPathStr in glob.iglob(f"{self.sourceFolder}/*/*/*"):
+                self.logger.info(f"Parsing: {chapterPathStr}")
+                # Inferring information from files
+                chapterPath = Path(chapterPathStr)
+                chapterName = html.unescape(chapterPath.name)
+                seriesName = html.unescape(chapterPath.parent.name)
+                anilistId = self.database.getAnilistIDForSeries(seriesName)
+                chapterNumber = self.calcChapterName.execute(chapterName, anilistId)
                 estimatedArchivePath = self.generateArchivePath(
-                    foundAnilistId, chapterNumber
+                    anilistId, chapterNumber)
+                chapterData = Chapter(
+                    anilistId,
+                    seriesName,
+                    chapterNumber,
+                    chapterName,
+                    chapterPath,
+                    estimatedArchivePath,
                 )
-                chapterData.archivePath = estimatedArchivePath
-                if not foundAnilistId or foundAnilistId is None:
-                    self.logger.error(f"No anilistId for {chapterData.seriesName}")
-                    return
-                chapterData.anilistId = foundAnilistId
-            if not isChapterOnDB:
-                self.setupMetadata(chapterData)
-                self.compressChapter(chapterData)
-                self.insertInDatabase(chapterData)
-                new_chapters.add(chapterData)
-                self.filesystem.deleteFolder(location=chapterPathStr)
-            else:
-                self.logger.info("Source exists but chapter's already in db")
-                self.filesystem.deleteFolder(location=chapterPathStr)
-        deleted_chapters = self.deleteReadChapters.execute()
-        for deleted_chapter in deleted_chapters:
-            if deleted_chapter in new_chapters:
-                new_chapters.remove(deleted_chapter)
+                self.logger.debug(f"Already had tracker ID: {anilistId}")
 
-        if len(new_chapters) > 0:
-            self.missingChapters.getGapsFromChaptersSince(dateScriptStart)
-            self.send_push(new_chapters)
+                isChapterOnDB = self.database.doesExistChapterAndAnilist(
+                    anilistId, chapterNumber
+                )
+                if not anilistId or anilistId is None:
+                    foundAnilistId = self.findAnilistIdForSeries(
+                        seriesName, interactive=interactive
+                    )
+                    estimatedArchivePath = self.generateArchivePath(
+                        foundAnilistId, chapterNumber
+                    )
+                    chapterData.archivePath = estimatedArchivePath
+                    if not foundAnilistId or foundAnilistId is None:
+                        self.logger.error(f"No anilistId for {chapterData.seriesName}")
+                        return
+                    chapterData.anilistId = foundAnilistId
+                if not isChapterOnDB:
+                    self.setupMetadata(chapterData)
+                    self.compressChapter(chapterData)
+                    self.insertInDatabase(chapterData)
+                    new_chapters.add(chapterData)
+                    self.filesystem.deleteFolder(location=chapterPathStr)
+                else:
+                    self.logger.info("Source exists but chapter's already in db")
+                    self.filesystem.deleteFolder(location=chapterPathStr)
+            deleted_chapters = self.deleteReadChapters.execute()
+            for deleted_chapter in deleted_chapters:
+                if deleted_chapter in new_chapters:
+                    new_chapters.remove(deleted_chapter)
+
+            if len(new_chapters) > 0:
+                gaps = self.missingChapters.getGapsFromChaptersSince(dateScriptStart)
+                self.send_push(new_chapters, gaps)
+        except Exception as thrown_exception:
+            self.logger.error("Exception thrown")
+            self.logger.error(str(thrown_exception))
+            self.send_error(thrown_exception)
 
     def generateArchivePath(self, anilistId, chapterNumber):
         return Path(self.archiveFolder).joinpath(f"{anilistId}/{chapterNumber}.cbz")
@@ -121,9 +127,23 @@ class MainRunner:
             str(chapter.sourcePath.resolve()),
         )
 
-    def send_push(self, chapters: Set[Chapter]):
-        base = f"{len(chapters)} new chapters downloaded\n\n"
+    def send_push(self, chapters: Set[Chapter], gaps: List[MissingChapter]):
+        chapters_plural = "chapters" if len(chapters) > 1 else "chapter"
+
+        base = f"{len(chapters)} new {chapters_plural} downloaded\n\n"
+
         titles = map(lambda x: f"{x.seriesName} {x.chapterNumber}", chapters)
         sorted_titles = sorted(titles)
+
         chapters_body = "\n".join(sorted_titles)
+
+        if len(gaps) > 0:
+            missing_title = "Updated in quarantine:"
+            missing_chapters = map(lambda x: f"{x.series_name}", gaps)
+            missing_body = "\n".join(missing_chapters)
+            chapters_body += "\n\n" + missing_title + "\n" + missing_body
+
         self.pushNotification.sendPush(base + chapters_body)
+
+    def send_error(self, value: Exception):
+        self.pushNotification.sendPush(str(value))

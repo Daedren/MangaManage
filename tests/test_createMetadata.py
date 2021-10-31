@@ -4,7 +4,6 @@ from manga.createMetadata2 import CreateMetadata2
 from unittest.mock import MagicMock
 from models.manga import Chapter
 from models.tracker import TrackerSeries
-from manga.gateways.anilistFake import FakeAnilistGateway
 from manga.gateways.anilist import TrackerGatewayInterface
 from lxml.doctestcompare import LXMLOutputChecker, PARSE_XML
 from lxml import etree
@@ -15,7 +14,7 @@ class TestCreateMetadata(unittest.TestCase):
         self.filesystem = MagicMock()
         self.tracker = TrackerGatewayInterface()
         self.sut = CreateMetadata2(filesystem=self.filesystem, anilist=self.tracker)
-        
+
         self.baseFake = Chapter(
             33194,
             "seriesN",
@@ -72,7 +71,8 @@ class TestCreateMetadata(unittest.TestCase):
         fake = self.baseFake
 
         stub = TrackerSeries(
-            fake.anilistId, [fake.seriesName, second_series_name], "FINISHED", 30, "KR", 17
+            fake.anilistId, [fake.seriesName,
+                             second_series_name], "FINISHED", 30, "KR", 17
         )
         self.tracker.getAllEntries = MagicMock(return_value={fake.anilistId: stub})
 
@@ -81,19 +81,20 @@ class TestCreateMetadata(unittest.TestCase):
             comparison = xml_file.read()
             self.__assertXmlEqual(result, comparison)
             self.__assertXmlMatchesComicInfo(result)
-    
+
     def test_getAltSeriesForChapter_differentCase_dontMatch(self):
         fake = self.baseFake
         different_case_series = "seriesn"
         second_series_name = "other series"
 
         stub = TrackerSeries(
-            fake.anilistId, [different_case_series, second_series_name], "FINISHED", 30, "KR", 17
+            fake.anilistId, [different_case_series,
+                             second_series_name], "FINISHED", 30, "KR", 17
         )
         self.tracker.getAllEntries = MagicMock(return_value={fake.anilistId: stub})
-        
+
         result = self.sut._CreateMetadata2__getAltSeriesForChapter(fake)
-        
+
         self.assertEqual(result, second_series_name)
 
     def test_getAltSeriesForChapter_differentPunctuation_dontMatch(self):
@@ -104,12 +105,13 @@ class TestCreateMetadata(unittest.TestCase):
         fake.seriesName = "series.N"
 
         stub = TrackerSeries(
-            fake.anilistId, [different_case_series, second_series_name], "FINISHED", 30, "KR", 17
+            fake.anilistId, [different_case_series,
+                             second_series_name], "FINISHED", 30, "KR", 17
         )
         self.tracker.getAllEntries = MagicMock(return_value={fake.anilistId: stub})
-        
+
         result = self.sut._CreateMetadata2__getAltSeriesForChapter(fake)
-        
+
         self.assertEqual(result, second_series_name)
 
     def test_getAltSeriesForChapter_differentWhitespace_dontMatch(self):
@@ -120,10 +122,11 @@ class TestCreateMetadata(unittest.TestCase):
         fake.seriesName = "series N"
 
         stub = TrackerSeries(
-            fake.anilistId, [different_case_series, second_series_name], "FINISHED", 30, "KR", 17
+            fake.anilistId, [different_case_series,
+                             second_series_name], "FINISHED", 30, "KR", 17
         )
         self.tracker.getAllEntries = MagicMock(return_value={fake.anilistId: stub})
-        
+
         result = self.sut._CreateMetadata2__getAltSeriesForChapter(fake)
-        
+
         self.assertEqual(result, second_series_name)

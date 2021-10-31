@@ -1,4 +1,6 @@
 settings.ini
+.venv
+.vscode
 /archive/
 sources/
 old/
