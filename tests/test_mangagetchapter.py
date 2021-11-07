@@ -68,3 +68,9 @@ class TestCalculateChapterName(unittest.TestCase):
     def test_calculatechaptername_S3Ep79Ch496_496(self):
         result = self.sut.execute("_[Season 3] Ep. 79 Ch. 496", 85143)
         self.assertEqual(result, "496")
+
+    # Mangaplus
+    def test_calculatechaptername_ShueishaEx_ex(self):
+        self.mockTracker.getProgressFor = MagicMock(return_value=15)
+        result = self.sut.execute("Shueisha_ex - ONE-SHOT_ Profoundly Mysterious Kick-the-Can-Battle!", 132029)
+        self.assertEqual(result, "15.8")
