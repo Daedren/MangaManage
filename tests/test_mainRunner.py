@@ -64,7 +64,7 @@ class TestMainRunner(unittest.TestCase):
         filesystem = FilesystemInterface()
         filesystem.move_source_cbz_to_archive = MagicMock()
         filesystem.put_comicinfo_in_cbz = MagicMock()
-        sut = self.createSut(filesystem=filesystem, sourceIsCBZ=True)
+        sut = self.createSut(filesystem=filesystem)
 
         with tempfile.NamedTemporaryFile() as fake_file:
             sut.prepareChapterCBZ(
@@ -76,7 +76,7 @@ class TestMainRunner(unittest.TestCase):
         filesystem = FilesystemInterface()
         filesystem.compress_chapter = MagicMock()
         filesystem.put_comicinfo_in_cbz = MagicMock()
-        sut = self.createSut(filesystem=filesystem, sourceIsCBZ=False)
+        sut = self.createSut(filesystem=filesystem)
 
         sut.prepareChapterCBZ(
             self.chapterStub(sourcePath=Path(tempfile.gettempdir())), Path("")
@@ -108,7 +108,6 @@ class TestMainRunner(unittest.TestCase):
         calcChapterName: CalculateChapterName = MagicMock(),
         updateTrackerIds: UpdateTrackerIds = MagicMock(),
         createMetadata: CreateMetadataInterface = MagicMock(),
-        sourceIsCBZ: bool = False,
     ) -> MainRunner:
         return MainRunner(
             sourceFolder,
@@ -121,5 +120,4 @@ class TestMainRunner(unittest.TestCase):
             calcChapterName,
             updateTrackerIds,
             createMetadata,
-            sourceIsCBZ,
         )
