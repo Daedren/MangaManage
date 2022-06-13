@@ -118,9 +118,6 @@ class MainRunner:
         return self.updateTrackerIds.updateFor(series, interactive=interactive)
 
     def setupMetadata(self, chapter: Chapter, output: BinaryIO):
-        # TODO: Problem here si that it tries to savve inside the .cbz
-        # Either create a context manage and save it wherever outside
-        # Create temp file then move it wherever you want?
         self.createMetadata.execute(chapter, output)
 
     def prepareChapterCBZ(self, chapter: Chapter, metadata: Path):
