@@ -3,6 +3,7 @@ import zipfile
 from pathlib import Path
 import shutil
 from cross.decorators import Logger
+from typing import BinaryIO
 
 
 class FilesystemInterface:
@@ -21,11 +22,21 @@ class FilesystemInterface:
     def getQuarantinedSeries(self):
         pass
 
-    def saveFile(self, stringData: str, filepath: Path):
+    def saveFileToPath(self, stringData: str, filepath: Path):
+        pass
+
+    def saveFile(self, stringData: str, file: BinaryIO):
         pass
 
     def compress_chapter(self, archive_path: Path, source_path: Path):
         '''Compresses chapter at source_path with destination archive_path'''
+        pass
+
+    def move_source_cbz_to_archive(self, archive_path: Path, source_path: Path):
+        '''In this case, both source and archive paths must be the CBZ paths'''
+        pass
+
+    def put_comicinfo_in_cbz(self, comicinfo: Path, cbz: Path):
         pass
 
 
@@ -90,7 +101,10 @@ class FilesystemGateway(FilesystemInterface):
             self.logger.debug(location)
             return
 
-        shutil.rmtree(location)
+        if chapterPath.is_dir():
+            shutil.rmtree(location)
+        else:
+            chapterPath.unlink()
 
         # Parent
         if (seriesPath.exists) and (not any(seriesPath.iterdir())):
@@ -133,9 +147,13 @@ class FilesystemGateway(FilesystemInterface):
         trackerIds = list(map(lambda x: int(x.stem), quarantinedSeries))
         return trackerIds
 
-    def saveFile(self, stringData: str, filepath: Path):
+    def saveFileToPath(self, stringData: str, filepath: Path):
         with open(filepath.resolve(), "wb") as file:
             file.write(stringData)
+
+    def saveFile(self, stringData: str, file: BinaryIO):
+        file.write(stringData)
+        file.flush()
 
     def compress_chapter(self, archive_path: Path, source_path: Path):
         archive_path.parent.mkdir(parents=True, exist_ok=True)
@@ -148,3 +166,11 @@ class FilesystemGateway(FilesystemInterface):
                     continue
                 ziphandler.write(os.path.join(root, file), file)
         ziphandler.close()
+        
+    def move_source_cbz_to_archive(self, archive_path: Path, source_path: Path):
+        archive_path.parent.mkdir(parents=True, exist_ok=True)
+        source_path.resolve().replace(archive_path.resolve())
+        
+    def put_comicinfo_in_cbz(self, comicinfo: Path, cbz: Path):
+        with zipfile.ZipFile(cbz.resolve(), 'a') as zip_file:
+            zip_file.write(comicinfo.resolve(), 'ComicInfo.xml')

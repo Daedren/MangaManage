@@ -1,7 +1,8 @@
 import datetime
 import glob
 import html
-from typing import List, Optional, Set
+import tempfile
+from typing import List, Optional, Set, BinaryIO
 from pathlib import Path
 from cross.decorators import Logger
 from manga.updateAnilistIds import UpdateTrackerIds
@@ -54,12 +55,13 @@ class MainRunner:
                 self.logger.info(f"Parsing: {chapterPathStr}")
                 # Inferring information from files
                 chapterPath = Path(chapterPathStr)
-                chapterName = html.unescape(chapterPath.name)
-                seriesName = html.unescape(chapterPath.parent.name)
+                chapterName = html.unescape(chapterPath.stem)
+                seriesName = html.unescape(chapterPath.parent.stem)
                 anilistId = self.database.getAnilistIDForSeries(seriesName)
                 chapterNumber = self.calcChapterName.execute(chapterName, anilistId)
                 estimatedArchivePath = self.generateArchivePath(
-                    anilistId, chapterNumber)
+                    anilistId, chapterNumber
+                )
                 chapterData = Chapter(
                     anilistId,
                     seriesName,
@@ -86,11 +88,13 @@ class MainRunner:
                         return
                     chapterData.anilistId = foundAnilistId
                 if not isChapterOnDB:
-                    self.setupMetadata(chapterData)
-                    self.compressChapter(chapterData)
-                    self.insertInDatabase(chapterData)
-                    new_chapters.add(chapterData)
-                    self.filesystem.deleteFolder(location=chapterPathStr)
+                    # Creates temporary place to store metadata before putting in CBZ
+                    with tempfile.NamedTemporaryFile() as metadata_file:
+                        self.setupMetadata(chapterData, output=metadata_file)
+                        self.prepareChapterCBZ(chapterData, Path(metadata_file.name))
+                        self.insertInDatabase(chapterData)
+                        new_chapters.add(chapterData)
+                        self.filesystem.deleteFolder(location=chapterPathStr)
                 else:
                     self.logger.info("Source exists but chapter's already in db")
                     self.filesystem.deleteFolder(location=chapterPathStr)
@@ -113,11 +117,25 @@ class MainRunner:
     def findAnilistIdForSeries(self, series: str, interactive=False) -> Optional[str]:
         return self.updateTrackerIds.updateFor(series, interactive=interactive)
 
-    def setupMetadata(self, chapter: Chapter):
-        self.createMetadata.execute(chapter)
+    def setupMetadata(self, chapter: Chapter, output: BinaryIO):
+        # TODO: Problem here si that it tries to savve inside the .cbz
+        # Either create a context manage and save it wherever outside
+        # Create temp file then move it wherever you want?
+        self.createMetadata.execute(chapter, output)
 
-    def compressChapter(self, chapter: Chapter):
-        self.filesystem.compress_chapter(chapter.archivePath, chapter.sourcePath)
+    def prepareChapterCBZ(self, chapter: Chapter, metadata: Path):
+        # Source file is CBZ or a folder?
+        if chapter.sourcePath.is_file():
+            self.filesystem.move_source_cbz_to_archive(
+                chapter.archivePath, chapter.sourcePath
+            )
+        else:
+            self.filesystem.compress_chapter(
+                archive_path=chapter.archivePath, source_path=chapter.sourcePath
+            )
+        self.filesystem.put_comicinfo_in_cbz(
+            cbz=chapter.archivePath, comicinfo=metadata
+        )
 
     def insertInDatabase(self, chapter: Chapter):
         self.database.insertChapter(

@@ -1,11 +1,16 @@
 import xml.etree.ElementTree as ET
+from typing import BinaryIO
 from models.manga import Chapter
 from cross.decorators import Logger
 from manga.gateways.filesystem import FilesystemInterface
+from pathlib import Path
 
 
 class CreateMetadataInterface:
-    def execute(self, chapter: Chapter):
+    def execute(self, chapter: Chapter, output: BinaryIO) -> Path:
+        """Creates a ComicInfo.xml for the given chapter.
+        Writes the data into the output parameter
+        """
         pass
 
 
@@ -24,11 +29,9 @@ class CreateMetadata(CreateMetadataInterface):
         self.logger.info(xmlstr)
         return xmlstr
 
-    def execute(self, chapter: Chapter):
+    def execute(self, chapter: Chapter, output: BinaryIO) -> Path:
         tree = self.__generateMetadata(chapter)
-        destination = chapter.sourcePath.joinpath("ComicInfo.xml")
-
-        tree.write(destination.resolve(), encoding="utf8", xml_declaration=True)
+        tree.write(output, encoding="utf8", xml_declaration=True)
 
     def __generateMetadata(self, chapter: Chapter) -> ET.ElementTree:
         root = ET.Element("ComicInfo")

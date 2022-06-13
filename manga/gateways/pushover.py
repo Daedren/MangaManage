@@ -1,6 +1,7 @@
 import http.client
 import urllib
 from cross.decorators import Logger
+from cross.debug import debugger_is_active
 
 
 class PushServiceInterface:
@@ -15,6 +16,8 @@ class PushoverGateway(PushServiceInterface):
         self.tokenApp = tokenApp
 
     def sendPush(self, msg: str):
+        if debugger_is_active:
+            return
         conn = http.client.HTTPSConnection("api.pushover.net:443")
         conn.request(
             "POST",

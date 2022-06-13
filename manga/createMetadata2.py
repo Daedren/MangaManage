@@ -1,11 +1,12 @@
 import string
-from typing import Optional
+from typing import Optional, BinaryIO
 from lxml import etree
 from models.manga import Chapter
 from cross.decorators import Logger
 from manga.gateways.filesystem import FilesystemInterface
 from manga.gateways.anilist import AnilistGateway
 from .createMetadata import CreateMetadataInterface
+from pathlib import Path
 
 
 @Logger
@@ -16,10 +17,9 @@ class CreateMetadata2(CreateMetadataInterface):
         self.filesystem = filesystem
         self.anilist = anilist
 
-    def execute(self, chapter: Chapter):
+    def execute(self, chapter: Chapter, output: BinaryIO) -> Path:
         result = self.__generateMetadata(chapter)
-        destination = chapter.sourcePath.joinpath("ComicInfo.xml")
-        self.filesystem.saveFile(stringData=result, filepath=destination)
+        self.filesystem.saveFile(stringData=result, file=output)
 
     def __generateMetadata(self, chapter: Chapter) -> str:
         country = self.__getCountryForChapter(chapter)

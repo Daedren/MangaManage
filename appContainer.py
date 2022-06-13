@@ -1,11 +1,12 @@
 
+from configparser import ConfigParser
 from manga.mangaContainer import MangaContainer
 from manga.gateways.gatewayContainer import GatewayContainer
 from mainRunner import MainRunner
 
 
 class ApplicationContainer():
-    def __init__(self, configuration) -> None:
+    def __init__(self, configuration: ConfigParser) -> None:
         self.config = configuration
         self.gateways = GatewayContainer(self.config)
         self.manga = MangaContainer(self.config,
@@ -23,6 +24,6 @@ class ApplicationContainer():
             self.manga.deleteReadChapters,
             self.manga.calculateChapterName,
             self.manga.updateTrackerIds,
-            self.manga.createMetadata
+            self.manga.createMetadata,
         )
         pass

@@ -1,5 +1,7 @@
 from pathlib import Path
 import shutil
+import io
+import zipfile
 import unittest
 from manga.gateways.filesystem import FilesystemGateway
 
@@ -30,11 +32,13 @@ class TestFilesystemGateway(unittest.TestCase):
 
         # archive/series1 - one chapter
         # archive/series2 - two chapters
+        # archive/seriesCbz - Empty by default. Test should fill it up
         # archive/series4 - ch1 in archive (ch2 is in quarantine)
 
         self.archiveSeries1 = Path("/tmp/fstest/archive/seriesOne")
         self.archiveSeries1Quarantine = Path("/tmp/fstest/quarantine/seriesOne")
         self.archiveSeries2 = Path("/tmp/fstest/archive/seriesTwo")
+        self.archiveSeriesCbz = Path("/tmp/fstest/archive/seriesCbz")
 
         self.archiveSeries1Chapter1 = Path("/tmp/fstest/archive/seriesOne/1.cbz")
         self.archiveSeries2Chapter1 = Path("/tmp/fstest/archive/seriesTwo/1.cbz")
@@ -43,15 +47,20 @@ class TestFilesystemGateway(unittest.TestCase):
 
         # source1/series1 - one chapter
         # source1/series2 - two chapters
+        # source1/seriesCbz - one chapter in CBZ format
         # source2/series1 - one chapter
 
         self.source1Series1 = Path("/tmp/fstest/source/sourceOne/seriesOne")
         self.source1Series2 = Path("/tmp/fstest/source/sourceOne/seriesTwo")
+        self.source1SeriesCbz = Path("/tmp/fstest/source/sourceOne/seriesCbz")
         self.source1Series4 = Path("/tmp/fstest/source/sourceOne/seriesFour")
         self.source2Series1 = Path("/tmp/fstest/source/sourceTwo/seriesOne")
 
         self.source1Series1Chapter1 = Path(
             "/tmp/fstest/source/sourceOne/seriesOne/chapterOne"
+        )
+        self.source1SeriesCbzChapter1 = Path(
+            "/tmp/fstest/source/sourceOne/seriesCbz/chapterOne.cbz"
         )
         self.source1Series2Chapter1 = Path(
             "/tmp/fstest/source/sourceOne/seriesTwo/chapterOne"
@@ -78,6 +87,7 @@ class TestFilesystemGateway(unittest.TestCase):
         assert self.source1Series2Chapter1.exists()
         assert self.source1Series2Chapter2.exists()
         assert self.source2Series1Chapter1.exists()
+        assert self.source1SeriesCbzChapter1.exists()
 
         return super().setUp()
 
@@ -86,7 +96,8 @@ class TestFilesystemGateway(unittest.TestCase):
         return super().tearDown()
 
     def test_deleteFolder_onechapter_deletesseries(self):
-        """Deletes one chapter.
+        """test_deleteFolder_onechapter_deletesseries
+        Deletes one chapter.
         Since the folder has no more chapters, it should be deleted
         """
 
@@ -101,7 +112,8 @@ class TestFilesystemGateway(unittest.TestCase):
         return
 
     def test_deleteFolder_twochapters_deletechapter(self):
-        """Deletes one chapter."""
+        """test_deleteFolder_twochapters_deletechapter
+        Deletes one chapter."""
 
         self.sut.deleteFolder(self.source1Series2Chapter1)
 
@@ -114,6 +126,7 @@ class TestFilesystemGateway(unittest.TestCase):
         return
 
     def test_deleteArchive_onechapterSeries_seriesDeleted(self):
+        """test_deleteArchive_onechapterSeries_seriesDeleted"""
         self.sut.deleteArchive(self.series1, "1")
 
         self.assertFalse(self.archiveSeries1Chapter1.exists())
@@ -122,15 +135,36 @@ class TestFilesystemGateway(unittest.TestCase):
         self.assertTrue(self.source1Series1Chapter1.exists())
 
     def test_quarantine_normal_move(self):
+        """test_quarantine_normal_move"""
         self.sut.quarantineSeries(self.series1)
         self.assertTrue(self.archiveSeries1Quarantine.exists())
         self.assertFalse(self.archiveSeries1.exists())
         self.assertTrue(self.archiveSeries1Quarantine.joinpath("1.cbz").exists())
 
     def test_quarantine_mixed_merge(self):
-        """In case the series was already quarantined
+        """test_quarantine_mixed_merge
+        In case the series was already quarantined
         don't delete existing qt chapters when doing it for other chapters"""
         self.sut.quarantineSeries(self.series4)
         self.assertTrue(self.archiveSeries4QuarantineChapter2.exists())
         self.assertTrue(self.archiveSeries4QuarantineChapter1.exists())
         self.assertFalse(self.archiveSeries4Chapter1.exists())
+
+    def test_movesourcecbztoarchive_success(self):
+        """test_movesourcecbztoarchive_success"""
+        archiveCbzChapter = self.archiveSeriesCbz.joinpath(self.source1SeriesCbzChapter1.name)
+        self.sut.move_source_cbz_to_archive(archiveCbzChapter, self.source1SeriesCbzChapter1)
+        self.assertTrue(self.archiveSeriesCbz.exists())
+        self.assertEqual(self.source1SeriesCbzChapter1.name, str(next(self.archiveSeriesCbz.iterdir()).name))
+    
+    def test_putcomicinfoincbz_success(self):
+        """test_putcomicinfoincbz_success"""
+        # Uh, is our chapter iterator finding these?
+        comicinfo = Path("tests/resources/createMetadata_1.xml")
+        cbz = self.source1SeriesCbzChapter1
+        self.sut.put_comicinfo_in_cbz(comicinfo, cbz)
+        with zipfile.ZipFile(cbz) as zf:
+            files = zf.namelist()
+        print(files)
+        self.assertTrue('ComicInfo.xml' in files)
+        self.assertTrue(len(files) > 1)
