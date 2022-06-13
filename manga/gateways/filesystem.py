@@ -96,10 +96,6 @@ class FilesystemGateway(FilesystemInterface):
     def deleteFolder(self, location: str):
         chapterPath = Path(location)
         seriesPath = chapterPath.parent
-        if not chapterPath.exists():
-            self.logger.debug("source chapter doesn't exist")
-            self.logger.debug(location)
-            return
 
         if chapterPath.is_dir():
             shutil.rmtree(location)
