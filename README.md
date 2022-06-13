@@ -8,6 +8,7 @@ This allows for a completely hands-off management of Tachi downloads, to be cons
 ## Features
 
 - Grabs a folder of Tachiyomi downloads, converts them to CBZ
+  - Also supports chapters already downloaded as CBZ
 - Creates ComicInfo.xml metadata files to accompany the CBZ files.
 - Deletes the CBZ files once you've marked the chapters as read in Anilist
 - Quarantines (Moves it to a different folder) comics when there's missing chapters to avoid reading them by accident. They're moved back when the problem is fixed.
