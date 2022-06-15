@@ -94,10 +94,10 @@ class MainRunner:
                         self.prepareChapterCBZ(chapterData, Path(metadata_file.name))
                         self.insertInDatabase(chapterData)
                         new_chapters.add(chapterData)
-                        self.filesystem.deleteFolder(location=chapterPathStr)
+                        self.filesystem.deleteSourceChapter(location=chapterPathStr)
                 else:
                     self.logger.info("Source exists but chapter's already in db")
-                    self.filesystem.deleteFolder(location=chapterPathStr)
+                    self.filesystem.deleteSourceChapter(location=chapterPathStr)
             deleted_chapters = self.deleteReadChapters.execute()
             for deleted_chapter in deleted_chapters:
                 if deleted_chapter in new_chapters:

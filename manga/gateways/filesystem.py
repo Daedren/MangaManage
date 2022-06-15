@@ -10,7 +10,7 @@ class FilesystemInterface:
     def deleteArchive(self, anilistId, chapterNumber):
         pass
 
-    def deleteFolder(self, location: str):
+    def deleteSourceChapter(self, location: str):
         pass
 
     def quarantineSeries(self, anilistId: str):
@@ -44,7 +44,7 @@ class FilesystemFakeGateway(FilesystemInterface):
     def deleteArchive(self, anilistId, chapterNumber):
         pass
 
-    def deleteFolder(self, location: str):
+    def deleteSourceChapter(self, location: str):
         if not os.path.exists(location):
             print("source chapter doesn't exist")
             print(location)
@@ -55,9 +55,8 @@ class FilesystemFakeGateway(FilesystemInterface):
 @Logger
 class FilesystemGateway(FilesystemInterface):
     def __init__(
-        self, sourceFolder: str, archiveFolder: str, quarantineFolder: str
+        self, archiveFolder: str, quarantineFolder: str
     ) -> None:
-        self.mangas = sourceFolder
         self.archiveRootPath = Path(archiveFolder)
         self.quarantineFolder = Path(quarantineFolder)
 
@@ -93,9 +92,12 @@ class FilesystemGateway(FilesystemInterface):
             archiveSeriesPath.rmdir()
         return True
 
-    def deleteFolder(self, location: str):
+    def deleteSourceChapter(self, location: str):
         chapterPath = Path(location)
         seriesPath = chapterPath.parent
+        
+        if not chapterPath.exists():
+            return
 
         if chapterPath.is_dir():
             shutil.rmtree(location)

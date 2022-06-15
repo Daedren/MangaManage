@@ -11,7 +11,6 @@ class TestFilesystemGateway(unittest.TestCase):
         shutil.rmtree("/tmp/fstest/", ignore_errors=True)
         shutil.copytree("tests/resources/filesystemStub", "/tmp/fstest")
         self.sut = FilesystemGateway(
-            sourceFolder="/tmp/fstest/source",
             archiveFolder="/tmp/fstest/archive",
             quarantineFolder="/tmp/fstest/quarantine",
         )
@@ -95,13 +94,13 @@ class TestFilesystemGateway(unittest.TestCase):
         shutil.rmtree("/tmp/fstest/")
         return super().tearDown()
 
-    def test_deleteFolder_onechapter_deletesseries(self):
-        """test_deleteFolder_onechapter_deletesseries
+    def test_deleteSourceChapter_onechapter_deletesseries(self):
+        """test_deleteSourceChapter_onechapter_deletesseries
         Deletes one chapter.
         Since the folder has no more chapters, it should be deleted
         """
 
-        self.sut.deleteFolder(self.source1Series1Chapter1)
+        self.sut.deleteSourceChapter(self.source1Series1Chapter1)
 
         self.assertFalse(self.source1Series1Chapter1.exists())
         self.assertFalse(self.source1Series1.exists())
@@ -111,11 +110,11 @@ class TestFilesystemGateway(unittest.TestCase):
 
         return
 
-    def test_deleteFolder_twochapters_deletechapter(self):
-        """test_deleteFolder_twochapters_deletechapter
+    def test_deleteSourceChapter_twochapters_deletechapter(self):
+        """test_deleteSourceChapter_twochapters_deletechapter
         Deletes one chapter."""
 
-        self.sut.deleteFolder(self.source1Series2Chapter1)
+        self.sut.deleteSourceChapter(self.source1Series2Chapter1)
 
         self.assertFalse(self.source1Series2Chapter1.exists())
         self.assertTrue(self.source1Series2Chapter2.exists())

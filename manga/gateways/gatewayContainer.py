@@ -10,7 +10,6 @@ class GatewayContainer:
         self.config = configuration
         self.database = DatabaseGateway(self.config["database"]["sqlitelocation"])
         self.filesystem = FilesystemGateway(
-            self.config["manga"]["sourcefolder"],
             self.config["manga"]["archivefolder"],
             self.config["manga"]["quarantinefolder"],
         )
