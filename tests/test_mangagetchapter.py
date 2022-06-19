@@ -74,3 +74,14 @@ class TestCalculateChapterName(unittest.TestCase):
         self.mockTracker.getProgressFor = MagicMock(return_value=15)
         result = self.sut.execute("Shueisha_ex - ONE-SHOT_ Profoundly Mysterious Kick-the-Can-Battle!", 132029)
         self.assertEqual(result, "15.8")
+
+    # Mangaplus
+    def test_calculatechaptername_NoPrefixEx_ex(self):
+        self.mockTracker.getProgressFor = MagicMock(return_value=15)
+        result = self.sut.execute("_ex - ONE-SHOT_ Profoundly Mysterious Kick-the-Can-Battle!", 132029)
+        self.assertEqual(result, "15.8")
+
+    def test_calculatechaptername_noLeadingZero_AddLeadingZero(self):
+        self.mockTracker.getProgressFor = MagicMock(return_value=15)
+        result = self.sut.execute("CClaw Translation_Ch.0.1 - YouTube Oneshot 2", 130837)
+        self.assertEqual(result, "0.1")

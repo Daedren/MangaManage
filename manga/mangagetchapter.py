@@ -1,4 +1,5 @@
 from typing import Optional
+from decimal import Decimal
 from manga.gateways.anilist import TrackerGatewayInterface
 import os
 from pathlib import Path
@@ -28,7 +29,7 @@ class CalculateChapterName:
         progress = self.anilist.getProgressFor(int(anilistId))
         return progress
 
-    def execute(self, chapterName, anilistId):
+    def execute(self, chapterName, anilistId) -> str:
         """ Infers the chapter number from a chapter name
             (chapter, volume, volChapter)
         """
@@ -45,11 +46,13 @@ class CalculateChapterName:
             detectedChapter = func(chapterName, anilistId)
             if detectedChapter is not None:
                 break
-
-        return detectedChapter
+            
+        # Cleans up. Adds leading zero. Catches errors. etc.
+        to_return = Decimal(detectedChapter)
+        return str(to_return)
 
     def __exNotation(self, chapterName: str, anilistId: int) -> Optional[str]:
-        exRegex = r"^(\w+_|\#)?ex\ -\ .*?([0-9]+)?"
+        exRegex = r"^(\w*_|\#)?ex\ -\ .*?([0-9]+)?"
         matchObj = re.search(exRegex, chapterName)
         if matchObj:
             result = self._getNewestChAnilistFor(anilistId)
