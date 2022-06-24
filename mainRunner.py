@@ -57,7 +57,7 @@ class MainRunner:
                 # Inferring information from files
                 chapterPath = Path(chapterPathStr)
                 chapterName = html.unescape(chapterPath.stem)
-                seriesName = html.unescape(chapterPath.parent.stem)
+                seriesName = html.unescape(chapterPath.parent.name)
                 anilistId = self.database.getAnilistIDForSeries(seriesName)
                 chapterNumber = self.calcChapterName.execute(chapterName, anilistId)
                 estimatedArchivePath = self.generateArchivePath(
