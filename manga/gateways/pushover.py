@@ -17,6 +17,7 @@ class PushoverGateway(PushServiceInterface):
 
     def sendPush(self, msg: str):
         if debugger_is_active:
+            self.logger.debug(f'Push omitted: {msg}')
             return
         conn = http.client.HTTPSConnection("api.pushover.net:443")
         conn.request(

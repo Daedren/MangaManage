@@ -2,6 +2,7 @@ import datetime
 import glob
 import html
 import tempfile
+import traceback
 from typing import List, Optional, Set, BinaryIO
 from pathlib import Path
 from cross.decorators import Logger
@@ -108,8 +109,9 @@ class MainRunner:
                 self.send_push(new_chapters, gaps)
         except Exception as thrown_exception:
             self.logger.error("Exception thrown")
-            self.logger.error(str(thrown_exception))
-            self.send_error(thrown_exception)
+            trace = traceback.format_exc()
+            self.logger.error(trace)
+            self.send_error(trace)
 
     def generateArchivePath(self, anilistId, chapterNumber):
         return Path(self.archiveFolder).joinpath(f"{anilistId}/{chapterNumber}.cbz")
