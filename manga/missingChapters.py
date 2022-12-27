@@ -3,7 +3,7 @@ import datetime
 from manga.gateways.anilist import AnilistGateway
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.filesystem import FilesystemInterface
-from models.manga import MissingChapter
+from models.manga import MissingChapter, MissingConsecutiveChapter, MissingTrackerChapter
 from cross.decorators import Logger
 import os
 
@@ -64,27 +64,26 @@ class CheckGapsInChapters:
 
             titles = trackerData.titles
             allChapters = list(map(lambda x: float(x["chapter"]), rowData))
-            current_series = MissingChapter(
-                rowAnilistId, titles[0], min(allChapters), realProgress)
 
-            if self.__gapExistsInTrackerProgress(realProgress, allChapters):
+            """Check for gap in chapters vs the tracker"""
+            gap = self.__gapExistsInTrackerProgress(rowAnilistId, titles[0], realProgress, allChapters)
+            if gap:
                 if series_in_date:
-                    self.logger.info(
-                        "{} - Last read at {}, but only {} is in DB".format(
-                            titles, realProgress, min(allChapters)
-                        )
-                    )
-                    newQuarantineList.append(current_series)
+                    newQuarantineList.append(gap)
                 allQuarantineAnilist.append(rowAnilistId)
                 continue
 
-            noGapsInChapters = self.__checkConsecutive(
-                allChapters, titlesForLogging=titles, shouldLog=series_in_date
+            """Check for gap in consecutive chapters"""
+            gaps = self.__checkConsecutive(
+                rowAnilistId, titles[0], allChapters
             )
-            if not noGapsInChapters:
+            if gaps:
                 allQuarantineAnilist.append(rowAnilistId)
                 if series_in_date:
-                    newQuarantineList.append(current_series)
+                    newQuarantineList.extend(gaps)
+        
+        for chapter in newQuarantineList:
+            self.logger.info(chapter.reasonToPrint())
 
         self.__checkQuarantines(allQuarantineAnilist)
 
@@ -105,27 +104,31 @@ class CheckGapsInChapters:
         return
 
     def __checkConsecutive(
-        self, listToCheck: list, titlesForLogging: Optional[str] = None, shouldLog=True
-    ) -> bool:
+        self, tracker_id: int, title: str, listToCheck: list,
+    ) -> List[MissingConsecutiveChapter]:
+        to_return = list()
         sortedChapters = sorted(listToCheck)
         lastChapter = None
-        found_gap = False
         for chap in sortedChapters:
             if (lastChapter is not None) and (round(chap - lastChapter, 1) > 1.1):
-                found_gap = True
-                if titlesForLogging is not None and shouldLog:
-                    self.logger.info(
-                        f"{titlesForLogging} - Gap between {lastChapter} and {chap}"
+                to_return.append(
+                    MissingConsecutiveChapter(
+                        tracker_id, title, lastChapter, chap
                     )
+                )
             lastChapter = chap
-        return not found_gap
+        return to_return
 
     def __gapExistsInTrackerProgress(
-        self, trackerProgress: int, chapters: list
-    ) -> bool:
+        self, trackerId: int, title: str, trackerProgress: int, chapters: list
+    ) -> Optional[MissingTrackerChapter]:
         """Checks if the lowest chapter we have
         is right after the last one in the tracker"""
-        return round(trackerProgress - min(chapters), 1) < -1.1
+        gapExists = round(trackerProgress - min(chapters), 1) < -1.1
+        if gapExists:
+            return MissingTrackerChapter(trackerId, title, min(chapters), trackerProgress)
+        else:
+            return None
 
     def __getNoLongerQuarantined(
         self, oldList: List[int], newList: List[int]

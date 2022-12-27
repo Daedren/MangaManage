@@ -156,7 +156,7 @@ class MainRunner:
 
         if len(gaps) > 0:
             missing_title = "Updated in quarantine:"
-            missing_chapters = map(lambda x: f"{x.series_name}", gaps)
+            missing_chapters = map(lambda x: x.reasonToPrint(), gaps)
             missing_body = "\n".join(missing_chapters)
             chapters_body += "\n\n" + missing_title + "\n" + missing_body
 

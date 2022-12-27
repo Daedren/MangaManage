@@ -1,5 +1,4 @@
-from collections import namedtuple
-from typing import Optional, Tuple
+from typing import Optional
 from cross.decorators import Logger
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.anilist import AnilistGateway

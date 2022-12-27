@@ -10,53 +10,53 @@ class TestCalculateChapterName(unittest.TestCase):
 
     def test_checkConsecutive_123_True(self):
         stub = [1, 2, 3]
-        result = self.sut._CheckGapsInChapters__checkConsecutive(stub)
-        self.assertTrue(result)
+        result = self.sut._CheckGapsInChapters__checkConsecutive(13300, 'title name', stub)
+        self.assertEqual(result, [])
 
     def test_checkConsecutive_321_True(self):
         stub = [3, 2, 1]
-        result = self.sut._CheckGapsInChapters__checkConsecutive(stub)
-        self.assertTrue(result)
+        result = self.sut._CheckGapsInChapters__checkConsecutive(13300, 'title name', stub)
+        self.assertEqual(result, [])
 
     def test_checkConsecutive_0d5Gap_True(self):
         stub = [1, 1.5, 2]
-        result = self.sut._CheckGapsInChapters__checkConsecutive(stub)
-        self.assertTrue(result)
+        result = self.sut._CheckGapsInChapters__checkConsecutive(13300, 'title name', stub)
+        self.assertEqual(result, [])
 
     def test_checkConsecutive_1d5Gap_False(self):
         stub = [1, 2, 3.5]
-        result = self.sut._CheckGapsInChapters__checkConsecutive(stub)
-        self.assertFalse(result)
+        result = self.sut._CheckGapsInChapters__checkConsecutive(13300, 'title name', stub)
+        self.assertNotEqual(result, [])
 
     def test_checkConsecutive_1d1Gap_True(self):
         """Some manga have fractional chapters, generally splitting one into two (40.1, 40.2)
         Which means we can have a jump from Ch39 to Ch40.1"""
         stub = [40.0, 41.1]
-        result = self.sut._CheckGapsInChapters__checkConsecutive(stub)
-        self.assertTrue(result)
+        result = self.sut._CheckGapsInChapters__checkConsecutive(13300, 'title name', stub)
+        self.assertEqual(result, [])
 
     def test_gapExistsInTrackerProgress_35prog37min_True(self):
         stub = [37.0, 38.0]
-        result = self.sut._CheckGapsInChapters__gapExistsInTrackerProgress(35, stub)
-        self.assertTrue(result)
+        result = self.sut._CheckGapsInChapters__gapExistsInTrackerProgress(13300, 'title name', 35, stub)
+        self.assertIsNotNone(result)
 
     def test_gapExistsInTrackerProgress_38prog35min_True(self):
         # Deleting already read manga isn't this class's responsibility
         stub = [35.0, 36.0]
-        result = self.sut._CheckGapsInChapters__gapExistsInTrackerProgress(38, stub)
-        self.assertFalse(result)
+        result = self.sut._CheckGapsInChapters__gapExistsInTrackerProgress(13300, 'title name', 38, stub)
+        self.assertIsNone(result)
 
     def test_gapExistsInTrackerProgress_34prog35min_True(self):
         stub = [35.0, 36.0]
-        result = self.sut._CheckGapsInChapters__gapExistsInTrackerProgress(34, stub)
-        self.assertFalse(result)
+        result = self.sut._CheckGapsInChapters__gapExistsInTrackerProgress(13300, 'title name', 34, stub)
+        self.assertIsNone(result)
 
     def test_gapExistsInTrackerProgress_35d2Prog36d1min_False(self):
         """Some manga have fractional chapters, generally splitting one into two (40.1, 40.2)
         Which means we can have a jump from Ch39 to Ch40.1"""
         stub = [41.1, 41.2]
-        result = self.sut._CheckGapsInChapters__gapExistsInTrackerProgress(40.0, stub)
-        self.assertFalse(result)
+        result = self.sut._CheckGapsInChapters__gapExistsInTrackerProgress(13300, 'title name', 40.0, stub)
+        self.assertIsNone(result)
 
     def test_getNoLongerQuarantined_oneNoLongerQ_KeepEverythingElse(self):
         alreadyQuarantined = [1234, 3245]

@@ -4,7 +4,7 @@ from pathlib import Path
 import tempfile
 
 from mainRunner import MainRunner
-from models.manga import Chapter, MissingChapter
+from models.manga import Chapter, MissingTrackerChapter
 
 from manga.updateAnilistIds import UpdateTrackerIds
 from manga.mangagetchapter import CalculateChapterName
@@ -49,14 +49,14 @@ class TestMainRunner(unittest.TestCase):
             "name 12\n"
             "\n"
             "Updated in quarantine:\n"
-            "missingSeries"
+            "missingSeries - Last read 12 but stored 32"
         )
         push = PushServiceInterface()
         push.sendPush = MagicMock()
         sut = self.createSut(push=push)
 
         chapters = [self.chapterStub()]
-        gaps = [MissingChapter(1, "missingSeries", 12, 10)]
+        gaps = [MissingTrackerChapter(1, "missingSeries", 32, 12)]
         sut.send_push(chapters, gaps)
         push.sendPush.assert_called_with(expectation)
 
