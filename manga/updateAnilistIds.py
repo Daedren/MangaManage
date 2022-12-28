@@ -53,6 +53,15 @@ class UpdateTrackerIds:
         self.logger.info("Updating for " + series)
         entries = self.anilist.getAllEntries()
         result = self.__findTrackerForSeries(entries.values(), series, interactive=interactive)
+
+        # If not in our tracker, search for it. Add as planning to read.
+        if result is None:
+            entries = self.anilist.searchMediaBy(series)
+            result = self.__findTrackerForSeries(entries.values(), series, interactive=interactive)
+            if result is not None:
+                self.logger.info(f"Adding '{series} ({result.tracker_entry})' to plan to read")
+                self.anilist.addPlanToRead(result.tracker_entry)
+
         if result is not None:
             self.database.insertTracking(result.series_name, result.tracker_entry)
             return result.tracker_entry

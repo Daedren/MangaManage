@@ -68,32 +68,52 @@ class AnilistGateway(TrackerGatewayInterface):
             print("Error in getProgressFor %s" % mediaId)
             print(e)
 
-    def searchMediaBy(self, title):
+    def searchMediaBy(self, title) -> Mapping[int, TrackerSeries]:
         query = """
       query($searchId: String) {
-    Media(search: $searchId) {
-      id,
-      title {
-        romaji
-        english
-        native
-        userPreferred
-      }
+    Media(search: $searchId, format: MANGA) {
+        id
+        synonyms
+        countryOfOrigin
+        title {
+          romaji
+          english
+        }
+        status
+        chapters
     }
   }"""
         variables = {"searchId": title}
 
         result = self.__prepareRequest(query, variables)
-        print(result)
-        media = result["data"]["Media"]
-        titleObj = media["title"]
-        titles = [
-            titleObj["romaji"],
-            titleObj["english"],
-            titleObj["native"],
-            titleObj["userPreferred"],
+        errors = result.get("errors")
+        if errors is not None:
+            print(result["errors"])
+            return
+
+        models: List[TrackerSeries] = []
+        series = result["data"]["Media"]
+        main_titles = [
+            series["title"]["english"],
+            series["title"]["romaji"],
         ]
-        return (media["id"], titles)
+        all_titles = main_titles + series["synonyms"]
+        non_empty_all_titles = list(filter(None, all_titles))
+
+        models.append(
+            TrackerSeries(
+                series["id"],
+                non_empty_all_titles,
+                series["status"],
+                series["chapters"],
+                series["countryOfOrigin"],
+                0,
+            )
+        )
+
+        # Create anilist ID keyed dictionary
+        model_dictionary = dict((v.tracker_id, v) for v in models)
+        return model_dictionary
 
     def getAllEntries(self) -> Mapping[int, TrackerSeries]:
         query = """
@@ -159,3 +179,26 @@ class AnilistGateway(TrackerGatewayInterface):
         # Create anilist ID keyed dictionary
         model_dictionary = dict((v.tracker_id, v) for v in models)
         return model_dictionary
+
+    def addPlanToRead(self, mediaId):
+        query = """
+        mutation($mediaId: Int, $status: MediaListStatus) {
+          SaveMediaListEntry (mediaId: $mediaId, status: $status) {
+            id
+            status
+          }
+        }
+        """
+
+        variables = {
+          "mediaId": mediaId,
+          "status": "PLANNING"
+        }
+
+        result = self.__prepareRequest(query, variables)
+        errors = result.get("errors")
+        if errors is not None:
+            print(result["errors"])
+            return
+        self.cache = {}
+        

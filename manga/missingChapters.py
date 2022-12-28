@@ -30,7 +30,7 @@ class CheckGapsInChapters:
         self.filesystem = filesystem
         pass
 
-    def getGapsFromChaptersSince(self, date: datetime):
+    def getGapsFromChaptersSince(self, date: datetime) -> List[MissingChapter]:
         dbresult = self.database.getAllChapters()
         # dbresult = self.database.getAllChaptersOfSeriesUpdatedAfter(date)
         lastUpdatedSeries = self.database.getSeriesLastUpdatedSince(date)
@@ -52,7 +52,7 @@ class CheckGapsInChapters:
             rowData = row[1]
             trackerData = trackerMapData.get(rowAnilistId)
             if trackerData is None:
-                self.logger.error(f"{rowAnilistId} not in tracker")
+                self.logger.error(f"{rowAnilistId} not in tracker.")
                 return
             else:
                 realProgress = trackerData.progress

@@ -71,7 +71,6 @@ class MainRunner:
                     chapterPath,
                     estimatedArchivePath,
                 )
-                self.logger.debug(f"Already had tracker ID: {anilistId}")
 
                 isChapterOnDB = self.database.doesExistChapterAndAnilist(
                     anilistId, chapterNumber
@@ -88,6 +87,8 @@ class MainRunner:
                         self.logger.error(f"No anilistId for {chapterData.seriesName}")
                         return
                     chapterData.anilistId = foundAnilistId
+                else:
+                    self.logger.debug(f"Already had tracker ID: {anilistId}")
                 if not isChapterOnDB:
                     # Creates temporary place to store metadata before putting in CBZ
                     with tempfile.NamedTemporaryFile() as metadata_file:
