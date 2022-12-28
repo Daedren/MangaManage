@@ -71,17 +71,19 @@ class AnilistGateway(TrackerGatewayInterface):
     def searchMediaBy(self, title) -> Mapping[int, TrackerSeries]:
         query = """
       query($searchId: String) {
-    Media(search: $searchId, format: MANGA) {
-        id
-        synonyms
-        countryOfOrigin
-        title {
-          romaji
-          english
-        }
-        status
-        chapters
-    }
+        Page(page: 1, perPage: 10) {
+          media(search: $searchId, format: MANGA) {
+              id
+              synonyms
+              countryOfOrigin
+              title {
+                romaji
+                english
+              }
+              status
+              chapters
+          }
+       }
   }"""
         variables = {"searchId": title}
 
@@ -91,25 +93,27 @@ class AnilistGateway(TrackerGatewayInterface):
             print(result["errors"])
             return
 
+        # Merge all of the user's manga lists
+        entries = result["data"]["Page"]["media"]
         models: List[TrackerSeries] = []
-        series = result["data"]["Media"]
-        main_titles = [
-            series["title"]["english"],
-            series["title"]["romaji"],
-        ]
-        all_titles = main_titles + series["synonyms"]
-        non_empty_all_titles = list(filter(None, all_titles))
+        for series in entries:
+            main_titles = [
+                series["title"]["english"],
+                series["title"]["romaji"],
+            ]
+            all_titles = main_titles + series["synonyms"]
+            non_empty_all_titles = list(filter(None, all_titles))
 
-        models.append(
-            TrackerSeries(
-                series["id"],
-                non_empty_all_titles,
-                series["status"],
-                series["chapters"],
-                series["countryOfOrigin"],
-                0,
+            models.append(
+                TrackerSeries(
+                    series["id"],
+                    non_empty_all_titles,
+                    series["status"],
+                    series["chapters"],
+                    series["countryOfOrigin"],
+                    0,
+                )
             )
-        )
 
         # Create anilist ID keyed dictionary
         model_dictionary = dict((v.tracker_id, v) for v in models)

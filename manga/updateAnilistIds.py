@@ -56,6 +56,7 @@ class UpdateTrackerIds:
 
         # If not in our tracker, search for it. Add as planning to read.
         if result is None:
+            self.logger.info(f"Couldn't find tracked series. Searching globally.")
             entries = self.anilist.searchMediaBy(series)
             result = self.__findTrackerForSeries(entries.values(), series, interactive=interactive)
             if result is not None:
