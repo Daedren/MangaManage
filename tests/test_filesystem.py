@@ -53,6 +53,7 @@ class TestFilesystemGateway(unittest.TestCase):
         self.source1Series2 = Path("/tmp/fstest/source/sourceOne/seriesTwo")
         self.source1SeriesCbz = Path("/tmp/fstest/source/sourceOne/seriesCbz")
         self.source1Series4 = Path("/tmp/fstest/source/sourceOne/seriesFour")
+        self.source2 = Path("/tmp/fstest/source/sourceTwo")
         self.source2Series1 = Path("/tmp/fstest/source/sourceTwo/seriesOne")
 
         self.source1Series1Chapter1 = Path(
@@ -122,6 +123,15 @@ class TestFilesystemGateway(unittest.TestCase):
         self.assertTrue(self.source2Series1Chapter1.exists())
         self.assertTrue(self.archiveSeries2Chapter1.exists())
 
+        return
+
+    def test_deleteSourceChapter_onechapter_deletesource(self):
+        """test_deleteSourceChapter_onechapter_deletesource
+        Deletes source if no more series inside."""
+
+        self.sut.deleteSourceChapter(self.source2Series1Chapter1)
+
+        self.assertFalse(self.source2.exists())
         return
 
     def test_deleteArchive_onechapterSeries_seriesDeleted(self):

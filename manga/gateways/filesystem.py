@@ -95,18 +95,21 @@ class FilesystemGateway(FilesystemInterface):
     def deleteSourceChapter(self, location: str):
         chapterPath = Path(location)
         seriesPath = chapterPath.parent
+        sourcePath = seriesPath.parent
         
-        if not chapterPath.exists():
-            return
+        if chapterPath.exists():
+            if chapterPath.is_dir():
+                shutil.rmtree(location)
+            else:
+                chapterPath.unlink()
 
-        if chapterPath.is_dir():
-            shutil.rmtree(location)
-        else:
-            chapterPath.unlink()
-
-        # Parent
+        # Parent - Series
         if (seriesPath.exists) and (not any(seriesPath.iterdir())):
             shutil.rmtree(seriesPath.resolve())
+
+        # Grandparent - Source
+        if (sourcePath.exists) and (not any(sourcePath.iterdir())):
+            shutil.rmtree(sourcePath.resolve())
 
     def quarantineSeries(self, anilistId: str):
         archiveSeriesPath = Path.joinpath(self.archiveRootPath, f"{anilistId}")
