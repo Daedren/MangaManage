@@ -86,12 +86,13 @@ class DatabaseMigrations:
 
     def __version4To5(self, conn: sqlite3.Connection):
         self.logger.info("Executing migration version 4 -> 5")
-        # Ids changed anyway, no point in copying them over
-        query = """
-             CREATE TABLE mangaupd(id integer primary key, mangaUpdatesId integer unique, anilistId integer unique, latestChapter integer null);
-             ALTER TABLE anilist DROP COLUMN mangaUpdatesId;
-
-             PRAGMA user_version = 5;
-        """
         cur = conn.cursor()
-        cur.executescript(query)
+        cur.execute("CREATE TABLE mangaupd(id integer primary key, mangaUpdatesId integer unique, anilistId integer unique, latestChapter integer null)")
+        # Ids changed anyway, no point in copying them over
+        # cur.execute("ALTER TABLE anilist DROP COLUMN mangaUpdatesId")
+        cur.execute("CREATE TABLE anilist_temp(id integer primary key, series text unique, anilistId integer)")
+        cur.execute("INSERT INTO anilist_temp SELECT id, series, anilistId FROM anilist")
+        cur.execute("DROP TABLE anilist")
+        cur.execute("ALTER TABLE anilist_temp RENAME TO anilist")
+        cur.execute("PRAGMA user_version = 5")
+        conn.commit()

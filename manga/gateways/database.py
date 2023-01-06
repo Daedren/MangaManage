@@ -143,6 +143,8 @@ class DatabaseGateway:
                             FROM manga a
                             INNER JOIN anilist b
                             ON a.series = b.series
+                            LEFT JOIN mangaupd c
+                            ON b.anilistId = c.anilistId
                             WHERE a.active = 1"""
             )
             rows = cur.fetchall()
