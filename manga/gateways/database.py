@@ -139,7 +139,7 @@ class DatabaseGateway:
             cur.execute(
                 """SELECT DISTINCT b.anilistId AS anilistId,
                             a.series AS series,
-                            b.mangaUpdatesId AS mangaUpdatesId
+                            c.mangaUpdatesId AS mangaUpdatesId
                             FROM manga a
                             INNER JOIN anilist b
                             ON a.series = b.series
