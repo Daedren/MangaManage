@@ -12,7 +12,7 @@ class TrackerGatewayInterface:
     def searchMediaBy(self, title):
         pass
 
-    def getAllEntries(self) -> Mapping[int, TrackerSeries]:
+    def getAllEntries(self, reading_only: bool = False) -> Mapping[int, TrackerSeries]:
         pass
 
 
@@ -119,10 +119,10 @@ class AnilistGateway(TrackerGatewayInterface):
         model_dictionary = dict((v.tracker_id, v) for v in models)
         return model_dictionary
 
-    def getAllEntries(self) -> Mapping[int, TrackerSeries]:
+    def getAllEntries(self, reading_only: bool = False) -> Mapping[int, TrackerSeries]:
         query = """
-      query($userId: Int) {
-    MediaListCollection(userId: $userId, type: MANGA, status_in: [CURRENT, PLANNING, REPEATING]) {
+      query($userId: Int, $status_not_in: [MediaListStatus]) {
+    MediaListCollection(userId: $userId, type: MANGA, status_not_in: $status_not_in) {
       lists {
         entries {
           ...mediaListEntry
@@ -147,7 +147,10 @@ class AnilistGateway(TrackerGatewayInterface):
   }
       """
 
-        variables = {"userId": self.userId}
+        variables = {
+          "userId": self.userId,
+          "status_not_in": ["COMPLETED", "DROPPED", "PAUSED"] if reading_only else [],
+          }
 
         result = self.__prepareRequest(query, variables)
         errors = result.get("errors")

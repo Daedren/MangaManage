@@ -22,7 +22,7 @@ class CheckForUpdates:
         self.calculate_chapter_name = calculate_chapter_name
 
     def updateLocalIds(self):
-        allTrackerEntries = self.tracker.getAllEntries()
+        allTrackerEntries = self.tracker.getAllEntries(reading_only=True)
         dbTracker = self.database.getHighestChapterAndLastUpdatedForSeries()
 
         for anilistId, trackerData in allTrackerEntries.items():
@@ -35,7 +35,7 @@ class CheckForUpdates:
             time.sleep(2)
     
     def checkForUpdates(self):
-        allTrackerEntries = self.tracker.getAllEntries().values() # For checking if the series is actually running
+        allTrackerEntries = self.tracker.getAllEntries(reading_only=True).values() # For checking if the series is actually running
         dbTracker = self.database.getHighestChapterAndLastUpdatedForSeries()
 
         # allTrackerEntries = filter(lambda x: x.tracker_id == 44685, allTrackerEntries)
