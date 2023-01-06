@@ -122,7 +122,7 @@ class AnilistGateway(TrackerGatewayInterface):
     def getAllEntries(self) -> Mapping[int, TrackerSeries]:
         query = """
       query($userId: Int) {
-    MediaListCollection(userId: $userId, type: MANGA) {
+    MediaListCollection(userId: $userId, type: MANGA, status_in: [CURRENT, PLANNING, REPEATING]) {
       lists {
         entries {
           ...mediaListEntry

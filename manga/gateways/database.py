@@ -64,21 +64,6 @@ class DatabaseGateway:
             else:
                 return row
 
-    def getMangaUpdForTracker(self, trackerId):
-        with self.__conn() as (_, cur):
-
-            query = """
-            SELECT mangaUpdatesId
-            FROM anilist
-            WHERE anilistId = ?
-            """
-            cur.execute(query, (trackerId,))
-            row = cur.fetchone()
-            if isinstance(row, tuple):
-                return row["mangaUpdatesId"]
-            else:
-                return row
-
     def doesExistChapterAndAnilist(self, anilistId, chapterNumber):
         with self.__conn() as (_, cur):
 
@@ -131,11 +116,21 @@ class DatabaseGateway:
         with self.__conn() as (conn, cur):
 
             query = """
-            UPDATE anilist
-            SET mangaUpdatesId = ?
-            WHERE anilistId = ?
+            INSERT INTO mangaupd(mangaUpdatesId, anilistId)
+            VALUES(?, ?)
             """
             cur.execute(query, (mangaUpdatesId, anilistId))
+            conn.commit()
+
+    def updateMangaUpdtLatestChapter(self, mangaUpdatesId: int, latestChapter: int):
+        with self.__conn() as (conn, cur):
+
+            query = """
+            UPDATE mangaupd
+            SET latestChapter = ?
+            WHERE mangaUpdatesId = ?
+            """
+            cur.execute(query, (latestChapter, mangaUpdatesId))
             conn.commit()
 
     def getAllSeriesWithLocalFiles(self) -> List[AnilistSeries]:
@@ -163,7 +158,10 @@ class DatabaseGateway:
 
             cur.execute(
                 """
-                SELECT DISTINCT anilistId, series, mangaUpdatesId FROM anilist
+                SELECT DISTINCT a.anilistId, a.series, b.mangaUpdatesId
+                FROM anilist a
+                LEFT JOIN mangaUpd b
+                ON a.anilistId = b.anilistId
                 """
             )
             rows = cur.fetchall()
@@ -264,25 +262,36 @@ class DatabaseGateway:
             # HAVING MAX(a.creation_date) > ?
             return cur.fetchall()
 
-    def getHighestChapterAndLastUpdatedForSeries(self, anilistId):
+    def getHighestChapterAndLastUpdatedForSeries(self):
         with self.__conn() as (_, cur):
 
             cur.execute(
                 """
-            SELECT MAX(CAST(a.chapter AS INT)) AS max_chapter,
-              b.series,
-              anilistId,
-              mangaUpdatesId,
-              MAX(a.creation_date) AS max_date
-            FROM anilist b
-            LEFT JOIN manga AS a
-            ON a.series = b.series
-            WHERE anilistId = ? AND a.active = 1
-            GROUP BY anilistId;
+SELECT
+    MAX(
+        CASE
+            WHEN mng.active = 1 THEN CAST(mng.chapter AS INT)
+            ELSE NULL
+        END
+    ) AS max_chapter,
+    mng.series,
+    upd.anilistId,
+    upd.mangaUpdatesId,
+    upd.latestChapter,
+    MAX(mng.creation_date) AS max_date
+FROM
+    mangaupd upd
+    LEFT JOIN anilist AS ani ON upd.anilistId = ani.anilistId
+    LEFT JOIN manga AS mng ON ani.series = mng.series
+GROUP BY
+    upd.anilistId;
                             """,
-                (anilistId,),
+                (),
             )
-            return cur.fetchone()
+            rows = cur.fetchall()
+            # Create anilist ID keyed dictionary
+            model_dictionary = dict((v['anilistId'], v) for v in rows)
+            return model_dictionary
 
     def getAllChaptersOfSeriesUpdatedAfter(self, lastUpdated: datetime):
         with self.__conn() as (_, cur):

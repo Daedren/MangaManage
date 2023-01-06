@@ -16,7 +16,6 @@ This allows for a completely hands-off management of Tachi downloads, to be cons
   - When the first available chapter isn't the one right after the last one you read (Anilist says last read is 30, first available is 32)
 - Sends a push notification when new chapters are dealt with.
 - Can check if there's a more recent manga release on MangaUpdates than the latest one archived. Good to know if a source has been slacking off.
-  - TODO: Cache it
 
 ## Future plans
 

@@ -85,3 +85,29 @@ class TestCalculateChapterName(unittest.TestCase):
         self.mockTracker.getProgressFor = MagicMock(return_value=15)
         result = self.sut.execute("CClaw Translation_Ch.0.1 - YouTube Oneshot 2", 130837)
         self.assertEqual(result, "0.1")
+
+    # MangaUpdates
+    def test_calculatechaptername_v60c34_34(self):
+        self.mockTracker.getProgressFor = MagicMock(return_value=15)
+        result = self.sut.execute("v.60 c.34.5", 130837)
+        self.assertEqual(result, "34.5")
+
+    def test_calculatechaptername_c3738_35(self):
+        self.mockTracker.getProgressFor = MagicMock(return_value=15)
+        result = self.sut.execute("c.37-38", 130837)
+        self.assertEqual(result, "38")
+
+    def test_calculatechaptername_c37a_37(self):
+        self.mockTracker.getProgressFor = MagicMock(return_value=15)
+        result = self.sut.execute("c.37a", 130837)
+        self.assertEqual(result, "37")
+
+    def test_calculatechaptername_c37v2_37(self):
+        self.mockTracker.getProgressFor = MagicMock(return_value=15)
+        result = self.sut.execute("c.37v2", 130837)
+        self.assertEqual(result, "37")
+
+    def test_calculatechaptername_c23end_23(self):
+        self.mockTracker.getProgressFor = MagicMock(return_value=15)
+        result = self.sut.execute("Mismarca Koukoku Monogatari v.4 c.23 (end)", 130837)
+        self.assertEqual(result, "23")

@@ -38,8 +38,9 @@ class CalculateChapterName:
 
         chapterFunctions = [
             self.__exNotation,
+            self.__mangaUpdNotation,
             self.__defaultChapterNotation,
-            self.__anyOtherNumberNotation
+            self.__anyOtherNumberNotation,
         ]
 
         for func in chapterFunctions:
@@ -80,6 +81,16 @@ class CalculateChapterName:
             bestValue = result[0]
             roundedValue = self.__formatNumber(bestValue)
             return str(roundedValue)
+        return None
+
+    def __mangaUpdNotation(self,
+                                 chapterName: str,
+                                 anilistId: int) -> Optional[str]:
+        regex = r"c\.([0-9]+\.?[0-9]*)\-?([0-9]+\.?[0-9]*)?"
+        matchObj = re.search(regex, chapterName)
+        if matchObj:
+            non_none_groups = list(filter(lambda x: x is not None, matchObj.groups()))
+            return non_none_groups[-1]
         return None
 
     def __latestAnilistNumber(self, chapterName: str, anilistId: int) -> Optional[str]:
