@@ -18,6 +18,7 @@ class GatewayContainer:
         self.tracker = AnilistGateway(
             self.config["tracker"]["anilisttoken"],
             self.config["tracker"]["anilistuserid"],
+            self.config["tracker"]["anilistclientid"],
         )
 
         self.mangaUpdates = MangaUpdatesGateway()

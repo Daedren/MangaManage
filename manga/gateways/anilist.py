@@ -2,7 +2,10 @@ import http.client
 import json
 from functools import reduce
 from typing import List, Mapping
+from manga.gateways.utils.exceptions import TokenRefreshException
 from models.tracker import TrackerSeries
+import configparser
+import sys
 
 
 class TrackerGatewayInterface:
@@ -17,9 +20,10 @@ class TrackerGatewayInterface:
 
 
 class AnilistGateway(TrackerGatewayInterface):
-    def __init__(self, authToken: str, userId: str) -> None:
+    def __init__(self, authToken: str, userId: str, client_id: str) -> None:
         self.token = authToken
         self.userId = userId
+        self.client_id = client_id
         self.cache = {}
 
     def __prepareRequest(self, query, variables):
@@ -39,10 +43,35 @@ class AnilistGateway(TrackerGatewayInterface):
 
         result = json.loads(utfData)
 
-        if res.status == 200:
+        if res.status != 200:
+            result = self.handle_anilist_errors(res, result, query, variables)
+        elif res.status == 200:
             self.cache[query_key] = result
 
         return result
+           
+    # handles generic anilist errors
+    def handle_anilist_errors(self, connection, result_body, original_query, query_variables):
+        """
+        Handles generic Anilist errors.
+        """
+        if connection.status == 200:
+            return result_body
+        elif connection.status == 400:
+            self.refresh_token()
+            return self.__prepareRequest(original_query, query_variables)
+
+    # Ask user for new Anilist token
+    def refresh_token(self):
+        """
+        Refreshes Anilist token and saves it in the .ini if needed.
+        """
+        auth_url = f'https://anilist.co/api/v2/oauth/authorize?client_id={self.client_id}&response_type=token'
+        raise TokenRefreshException(
+            "Please visit the following URL to get a new Anilist token: "
+            + auth_url
+            + "\nAnd enter it into the settings.ini file, prefixed with 'Bearer ' as the example shows"
+        )
 
     def getProgressFor(self, mediaId):
         try:
