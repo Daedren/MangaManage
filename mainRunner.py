@@ -49,6 +49,7 @@ class MainRunner:
 
     def execute(self, interactive=False):
         try:
+            print("aaaaaa")
             new_chapters: Set[Chapter] = set()
             dateScriptStart = datetime.datetime.now()
             # Globs chapters

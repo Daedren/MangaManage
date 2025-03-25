@@ -52,8 +52,8 @@ class CheckGapsInChapters:
             rowData = row[1]
             trackerData = trackerMapData.get(rowAnilistId)
             if trackerData is None:
-                self.logger.error(f"{rowAnilistId} not in tracker.")
-                return
+                self.logger.info(f"{rowAnilistId} not in tracker.")
+                continue
             else:
                 realProgress = trackerData.progress
 
