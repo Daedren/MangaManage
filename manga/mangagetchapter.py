@@ -40,7 +40,7 @@ class CalculateChapterName:
             self.__exNotation,
             self.__mangaUpdNotation,
             self.__defaultChapterNotation,
-            self.__anyOtherNumberNotation,
+            self.__get_last_number_notation,
         ]
 
         for func in chapterFunctions:
@@ -70,15 +70,17 @@ class CalculateChapterName:
             return matchObj.group(1).lstrip("0") or "0"
         return None
 
-    def __anyOtherNumberNotation(self,
+    def __get_last_number_notation(self,
                                  chapterName: str,
                                  anilistId: int) -> Optional[str]:
+        """
+        Tries to get the last number in the chapter name
+        """
         largeNumRegex = r"[0-9]+\.?[0-9]*"
         matchObj = re.findall(largeNumRegex, chapterName)
         if matchObj:
-            intMatch = map(lambda x: float(x), matchObj)
-            result = sorted(intMatch, reverse=True)
-            bestValue = result[0]
+            intMatch = list(map(lambda x: float(x), matchObj))
+            bestValue = intMatch[-1]
             roundedValue = self.__formatNumber(bestValue)
             return str(roundedValue)
         return None

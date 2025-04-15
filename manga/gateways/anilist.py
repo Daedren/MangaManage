@@ -67,11 +67,7 @@ class AnilistGateway(TrackerGatewayInterface):
         Refreshes Anilist token and saves it in the .ini if needed.
         """
         auth_url = f'https://anilist.co/api/v2/oauth/authorize?client_id={self.client_id}&response_type=token'
-        raise TokenRefreshException(
-            "Please visit the following URL to get a new Anilist token: "
-            + auth_url
-            + "\nAnd enter it into the settings.ini file, prefixed with 'Bearer ' as the example shows"
-        )
+        raise TokenRefreshException(auth_url)
 
     def getProgressFor(self, mediaId):
         try:
@@ -237,4 +233,4 @@ class AnilistGateway(TrackerGatewayInterface):
             print(result["errors"])
             return
         self.cache = {}
-        
+

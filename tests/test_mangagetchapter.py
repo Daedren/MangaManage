@@ -111,3 +111,8 @@ class TestCalculateChapterName(unittest.TestCase):
         self.mockTracker.getProgressFor = MagicMock(return_value=15)
         result = self.sut.execute("Mismarca Koukoku Monogatari v.4 c.23 (end)", 130837)
         self.assertEqual(result, "23")
+
+    def test_calculatechaptername_c9999(self):
+        self.mockTracker.getProgressFor = MagicMock(return_value=15)
+        result = self.sut.execute("The Labyrinth Raids Of The Ultimate Tank ~The Tank Possessing A Rare 9,999 Endurance Skill Was Expelled From The Hero Party~ Chapter 50", 130837)
+        self.assertEqual(result, "50")
