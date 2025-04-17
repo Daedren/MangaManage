@@ -19,3 +19,4 @@ pushoverappkey = <stuff>
 loglevel = DEBUG
 ; lxml or ElementTree. Preferred lxml
 xmlParser = lxml
+allowed_origins = http://localhost:5173,http://localhost:3000

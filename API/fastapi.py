@@ -1,10 +1,14 @@
 import configparser
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from appContainer import ApplicationContainer
 
 # Load configuration
 config = configparser.ConfigParser(allow_no_value=True)
 config.read("settings.ini")
+
+# Parse allowed origins from settings.ini
+allowed_origins = config["system"]["allowed_origins"].split(",")
 
 # Initialize the application container
 application_container = ApplicationContainer(config)
@@ -18,6 +22,15 @@ pushover_gateway = application_container.gateways.push
 
 # Create FastAPI app
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,  # Use origins from settings.ini
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
 
 
 @app.get("/anilist/progress/{media_id}")
@@ -58,6 +71,15 @@ async def insert_chapter(series_name: str, chapter_number: str, archive_path: st
     try:
         database_gateway.insertChapter(series_name, chapter_number, archive_path, source_path)
         return {"message": "Chapter inserted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/database/chapter")
+async def delete_chapter(database_id: int):
+    """Delete a chapter from the database."""
+    try:
+        database_gateway.deleteChapterById(database_id)
+        return {"message": "Chapter deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

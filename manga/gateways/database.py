@@ -37,7 +37,7 @@ class DatabaseGateway:
     def getAllDetailedChapters(self):
         with self.__conn() as (_, cur):
             query = """
-            SELECT manga.series, chapter, creation_date, anilistId
+            SELECT manga.id, manga.series, chapter, creation_date, anilistId
             FROM manga
             INNER JOIN anilist
             ON manga.series = anilist.series
@@ -90,6 +90,17 @@ class DatabaseGateway:
             AND series IN ( SELECT series FROM anilist WHERE anilistId = ?)
             """
             cur.execute(query, (chapterNumber, anilistId))
+            conn.commit()
+    
+    def deleteChapterById(self, chapterId):
+        with self.__conn() as (conn, cur):
+
+            query = """
+            UPDATE manga
+            SET active = 0, last_active = datetime('now')
+            WHERE id = ?
+            """
+            cur.execute(query, (chapterId,))
             conn.commit()
 
     def insertChapter(self, seriesName, chapterNumber: str, archivePath, sourcePath):
