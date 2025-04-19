@@ -10,14 +10,11 @@ const selectedChapters = ref<number[]>([]); // Array to store selected chapter I
 // Computed property to sort chapters
 const sortedChapters = computed(() => {
   if (!sortKey.value) return chaptersStore.chapters;
+
   return [...chaptersStore.chapters].sort((a, b) => {
-    const valA = a[sortKey.value];
-    const valB = b[sortKey.value];
-    if (valA === null || valA === undefined) return 1;
-    if (valB === null || valB === undefined) return -1;
-    if (valA < valB) return -1 * sortOrder.value;
-    if (valA > valB) return 1 * sortOrder.value;
-    return 0;
+    const valA = a[sortKey.value] ?? ''; // Default to empty string for null/undefined
+    const valB = b[sortKey.value] ?? '';
+    return valA > valB ? sortOrder.value : valA < valB ? -sortOrder.value : 0;
   });
 });
 
