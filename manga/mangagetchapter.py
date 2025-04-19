@@ -53,7 +53,7 @@ class CalculateChapterName:
         return str(to_return)
 
     def __exNotation(self, chapterName: str, anilistId: int) -> Optional[str]:
-        exRegex = r"^(\w*_|\#)?ex\ -\ .*?([0-9]+)?"
+        exRegex = r"^(\w|\s)*(_|#)?ex\ -\ "
         matchObj = re.search(exRegex, chapterName)
         if matchObj:
             result = self._getNewestChAnilistFor(anilistId)
