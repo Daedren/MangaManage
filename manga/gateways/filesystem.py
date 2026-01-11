@@ -174,4 +174,8 @@ class FilesystemGateway(FilesystemInterface):
         
     def put_comicinfo_in_cbz(self, comicinfo: Path, cbz: Path):
         with zipfile.ZipFile(cbz.resolve(), 'a') as zip_file:
+            # Check if ComicInfo.xml already exists in the archive
+            if 'ComicInfo.xml' in zip_file.namelist():
+                self.logger.debug(f"ComicInfo.xml already exists in {cbz}, skipping creation")
+                return
             zip_file.write(comicinfo.resolve(), 'ComicInfo.xml')
