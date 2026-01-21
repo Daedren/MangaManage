@@ -177,3 +177,71 @@ class TestFilesystemGateway(unittest.TestCase):
         print(files)
         self.assertTrue('ComicInfo.xml' in files)
         self.assertTrue(len(files) > 1)
+
+    def test_extract_anilist_id_from_cbz_success(self):
+        """test_extract_anilist_id_from_cbz_success
+        Test extracting AniList ID from ComicInfo.xml within a CBZ file"""
+        # Create a test CBZ with ComicInfo.xml containing AniList URL
+        test_cbz_path = Path("/tmp/fstest/test_anilist.cbz")
+        comicinfo_content = b'''<?xml version="1.0" encoding="utf-8"?>
+<ComicInfo>
+  <Series>Test Series</Series>
+  <Title>Chapter 1</Title>
+  <Number>1</Number>
+  <Web>https://anilist.co/manga/120039 https://mangadex.org/manga/636933aa-976e-4455-8082-36751a554be0</Web>
+</ComicInfo>'''
+        
+        # Create the CBZ with ComicInfo.xml
+        with zipfile.ZipFile(test_cbz_path, 'w') as zf:
+            zf.writestr('ComicInfo.xml', comicinfo_content)
+            zf.writestr('page001.jpg', b'fake image data')
+        
+        # Test extraction
+        anilist_id = self.sut.extract_anilist_id_from_cbz(test_cbz_path)
+        
+        self.assertEqual(anilist_id, 120039)
+        
+        # Clean up
+        test_cbz_path.unlink()
+
+    def test_extract_anilist_id_from_cbz_no_comicinfo(self):
+        """test_extract_anilist_id_from_cbz_no_comicinfo
+        Test that None is returned when CBZ has no ComicInfo.xml"""
+        # Create a test CBZ without ComicInfo.xml
+        test_cbz_path = Path("/tmp/fstest/test_no_comicinfo.cbz")
+        
+        with zipfile.ZipFile(test_cbz_path, 'w') as zf:
+            zf.writestr('page001.jpg', b'fake image data')
+        
+        # Test extraction
+        anilist_id = self.sut.extract_anilist_id_from_cbz(test_cbz_path)
+        
+        self.assertIsNone(anilist_id)
+        
+        # Clean up
+        test_cbz_path.unlink()
+
+    def test_extract_anilist_id_from_cbz_no_anilist_url(self):
+        """test_extract_anilist_id_from_cbz_no_anilist_url
+        Test that None is returned when ComicInfo.xml has no AniList URL"""
+        # Create a test CBZ with ComicInfo.xml but no AniList URL
+        test_cbz_path = Path("/tmp/fstest/test_no_anilist.cbz")
+        comicinfo_content = b'''<?xml version="1.0" encoding="utf-8"?>
+<ComicInfo>
+  <Series>Test Series</Series>
+  <Title>Chapter 1</Title>
+  <Number>1</Number>
+  <Web>https://mangadex.org/manga/636933aa-976e-4455-8082-36751a554be0</Web>
+</ComicInfo>'''
+        
+        with zipfile.ZipFile(test_cbz_path, 'w') as zf:
+            zf.writestr('ComicInfo.xml', comicinfo_content)
+            zf.writestr('page001.jpg', b'fake image data')
+        
+        # Test extraction
+        anilist_id = self.sut.extract_anilist_id_from_cbz(test_cbz_path)
+        
+        self.assertIsNone(anilist_id)
+        
+        # Clean up
+        test_cbz_path.unlink()

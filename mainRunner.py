@@ -59,7 +59,17 @@ class MainRunner:
                 chapterPath = Path(chapterPathStr)
                 chapterName = html.unescape(chapterPath.stem)
                 seriesName = html.unescape(chapterPath.parent.name)
+                
+                # Try to get AniList ID from database first
                 anilistId = self.database.getAnilistIDForSeries(seriesName)
+                
+                # If not found in database and source is a CBZ file, try to extract from ComicInfo.xml
+                if (not anilistId or anilistId is None) and chapterPath.is_file() and chapterPath.suffix.lower() == '.cbz':
+                    anilistId = self.filesystem.extract_anilist_id_from_cbz(chapterPath)
+                    if anilistId:
+                        self.logger.info(f"Extracted AniList ID {anilistId} from ComicInfo.xml in {chapterPath.name}")
+                        # Store the mapping in the database for future use
+                        self.database.insertTracking(seriesName, anilistId)
                 chapterNumber = self.calcChapterName.execute(chapterName, anilistId)
                 estimatedArchivePath = self.generateArchivePath(
                     anilistId, chapterNumber
