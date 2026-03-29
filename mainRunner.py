@@ -14,6 +14,7 @@ from manga.createMetadata import CreateMetadataInterface
 from manga.gateways.pushover import PushServiceInterface
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.filesystem import FilesystemInterface
+from manga.gateways.utils.exceptions import TokenRefreshException
 from models.manga import Chapter, MissingChapter
 
 # for each folder in sources
@@ -119,6 +120,11 @@ class MainRunner:
             if len(new_chapters) > 0:
                 gaps = self.missingChapters.getGapsFromChaptersSince(dateScriptStart)
                 self.send_push(new_chapters, gaps)
+        except TokenRefreshException as token_error:
+            self.logger.error("Anilist token has expired")
+            self.logger.error(str(token_error))
+            self.send_error("Anilist authentication token expired. Check logs for refresh instructions.")
+            raise
         except Exception as thrown_exception:
             self.logger.error("Exception thrown")
             trace = traceback.format_exc()

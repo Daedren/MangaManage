@@ -27,11 +27,58 @@ Nothing really, some ideas:
 
 ## Usage
 
+### Local Python Installation
+
 - Set appropriate variables and folder paths in settings.ini
 - Install dependencies (`pip install -r requirements.txt`)
 - Just run it (`python3 .`) with the manga inside the `sourcefolder` with the same folder structure that Tachiyomi leaves the downloads at.
 
-Alternatively there's a Dockerfile and image available at [Docker Hub](https://hub.docker.com/r/raikon/mangamanage)
+### Docker
+
+A Docker image is available at [Docker Hub](https://hub.docker.com/r/raikon/mangamanage).
+
+**Setup:**
+
+1. Copy `settings.ini.example` to `settings.ini` and configure it:
+   - Use container paths for folders: `/mbase/data/manga.db`, `/mbase/source`, `/mbase/archive`, `/mbase/quarantine`
+   - Set your Anilist token and other credentials
+
+2. Update `docker-compose.yml` to match your host folder paths:
+   - Point source folder to your Tachiyomi downloads location
+   - Set archive and quarantine folders to your desired locations
+   - Database will be stored in `./data` by default
+
+3. Run the container:
+   ```bash
+   # Run once
+   docker-compose run --rm mangamanage
+   
+   # Or run as a service
+   docker-compose up
+   ```
+
+**Updating Anilist Token:**
+
+When your Anilist refresh token expires, simply:
+1. Edit `settings.ini` on your host machine with the new token
+2. Restart the container: `docker-compose restart mangamanage`
+3. No rebuild required! The container reads the updated file.
+
+**Alternative: Using docker run**
+
+If you prefer not to use docker-compose:
+
+```bash
+docker run --rm \
+  -v "$(pwd)/settings.ini:/mbase/settings.ini:ro" \
+  -v "$(pwd)/data:/mbase/data" \
+  -v "/path/to/tachiyomi/downloads:/mbase/source:ro" \
+  -v "/path/to/manga/archive:/mbase/archive" \
+  -v "/path/to/manga/quarantine:/mbase/quarantine" \
+  raikon/mangamanage:latest
+```
+
+Remember to update the volume paths to match your system.
 
 There are some additional flags to run only some parts of the code, or to assist in some other manner, though they're not essential.
 
