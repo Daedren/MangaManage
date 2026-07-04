@@ -1,9 +1,10 @@
 import os
+import re
 import zipfile
 from pathlib import Path
 import shutil
 from cross.decorators import Logger
-from typing import BinaryIO
+from typing import BinaryIO, Optional
 
 
 class FilesystemInterface:
@@ -37,6 +38,10 @@ class FilesystemInterface:
         pass
 
     def put_comicinfo_in_cbz(self, comicinfo: Path, cbz: Path):
+        pass
+
+    def extract_anilist_id_from_cbz(self, cbz_path: Path) -> Optional[int]:
+        '''Extracts AniList ID from ComicInfo.xml Web field in a CBZ file'''
         pass
 
 
@@ -174,4 +179,39 @@ class FilesystemGateway(FilesystemInterface):
         
     def put_comicinfo_in_cbz(self, comicinfo: Path, cbz: Path):
         with zipfile.ZipFile(cbz.resolve(), 'a') as zip_file:
+            # Check if ComicInfo.xml already exists in the archive
+            if 'ComicInfo.xml' in zip_file.namelist():
+                self.logger.debug(f"ComicInfo.xml already exists in {cbz}, skipping creation")
+                return
             zip_file.write(comicinfo.resolve(), 'ComicInfo.xml')
+
+    def extract_anilist_id_from_cbz(self, cbz_path: Path) -> Optional[int]:
+        '''Extracts AniList ID from ComicInfo.xml Web field in a CBZ file'''
+        if not cbz_path.exists() or not cbz_path.is_file():
+            return None
+        
+        try:
+            with zipfile.ZipFile(cbz_path.resolve(), 'r') as zip_file:
+                # Check if ComicInfo.xml exists in the archive
+                if 'ComicInfo.xml' not in zip_file.namelist():
+                    return None
+                
+                # Read and parse the ComicInfo.xml
+                with zip_file.open('ComicInfo.xml') as xml_file:
+                    content = xml_file.read().decode('utf-8')
+                    
+                    # Look for <Web> tag and extract AniList URL
+                    web_match = re.search(r'<Web>(.*?)</Web>', content, re.DOTALL)
+                    if web_match:
+                        web_content = web_match.group(1)
+                        # Extract AniList ID from URL like https://anilist.co/manga/120039
+                        anilist_match = re.search(r'https://anilist\.co/manga/(\d+)', web_content)
+                        if anilist_match:
+                            anilist_id = int(anilist_match.group(1))
+                            self.logger.info(f"Found AniList ID {anilist_id} in ComicInfo.xml of {cbz_path.name}")
+                            return anilist_id
+        except Exception as e:
+            self.logger.warning(f"Error extracting AniList ID from {cbz_path}: {e}")
+            return None
+        
+        return None

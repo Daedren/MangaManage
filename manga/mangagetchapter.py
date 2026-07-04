@@ -34,6 +34,9 @@ class CalculateChapterName:
             (chapter, volume, volChapter)
         """
 
+        # Remove mihon's md5 hash at the end if present
+        chapterName = re.sub(r'([ _\-])?[a-fA-F0-9]{6}$', '', chapterName)
+
         detectedChapter: Optional[str] = None
 
         chapterFunctions = [
@@ -47,13 +50,14 @@ class CalculateChapterName:
             detectedChapter = func(chapterName, anilistId)
             if detectedChapter is not None:
                 break
-            
         # Cleans up. Adds leading zero. Catches errors. etc.
+        if detectedChapter is None:
+            raise ValueError(f"Could not detect chapter number from chapter name: {chapterName}")
         to_return = Decimal(detectedChapter)
         return str(to_return)
 
     def __exNotation(self, chapterName: str, anilistId: int) -> Optional[str]:
-        exRegex = r"^(\w*_|\#)?ex\ -\ .*?([0-9]+)?"
+        exRegex = r"^(\w|\s)*(_|#)?ex\ -\ "
         matchObj = re.search(exRegex, chapterName)
         if matchObj:
             result = self._getNewestChAnilistFor(anilistId)

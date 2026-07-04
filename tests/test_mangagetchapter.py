@@ -11,6 +11,16 @@ class TestCalculateChapterName(unittest.TestCase):
         self.sut = CalculateChapterName(self.mockTracker)
         return super().setUp()
 
+    def test_calculatechaptername_md5Removal(self):
+        # Should strip 6-char md5 and parse chapter number
+        result = self.sut.execute("Ch. 120 - The End_1a2b3c", 99943)
+        self.assertEqual(result, "120")
+
+    def test_calculatechaptername_md5Removal_allNumbers(self):
+        # Should strip 6-char md5 and parse chapter number
+        result = self.sut.execute("Ch. 120 - The End_114241", 99943)
+        self.assertEqual(result, "120")
+
     def test_calculatechaptername_Ch107Room203_107(self):
         result = self.sut.execute(
             "Vol. 13 Ch. 107 - The Girlfriend, and Room 203", 99943
@@ -79,6 +89,12 @@ class TestCalculateChapterName(unittest.TestCase):
     def test_calculatechaptername_NoPrefixEx_ex(self):
         self.mockTracker.getProgressFor = MagicMock(return_value=15)
         result = self.sut.execute("_ex - ONE-SHOT_ Profoundly Mysterious Kick-the-Can-Battle!", 132029)
+        self.assertEqual(result, "15.8")
+
+    # Mangaplus
+    def test_calculatechaptername_ExWithSpace_ex(self):
+        self.mockTracker.getProgressFor = MagicMock(return_value=15)
+        result = self.sut.execute("MANGA Plus_ex - ILLUSTRATION", 132029)
         self.assertEqual(result, "15.8")
 
     def test_calculatechaptername_noLeadingZero_AddLeadingZero(self):
