@@ -6,6 +6,7 @@ from manga.gateways.utils.exceptions import TokenRefreshException
 from models.tracker import TrackerSeries
 import configparser
 import sys
+from cross.decorators import Logger
 
 
 class TrackerGatewayInterface:
@@ -19,6 +20,7 @@ class TrackerGatewayInterface:
         pass
 
 
+@Logger
 class AnilistGateway(TrackerGatewayInterface):
     def __init__(self, authToken: str, userId: str, client_id: str) -> None:
         self.token = authToken
@@ -84,14 +86,14 @@ class AnilistGateway(TrackerGatewayInterface):
             result = self.__prepareRequest(query, variables)
             errors = result.get("errors")
             if errors is not None:
-                print("Error in getProgressFor %s" % mediaId)
-                print(result["errors"])
+                self.logger.error("Error in getProgressFor %s", mediaId)
+                self.logger.error(result["errors"])
                 return
             entries = result["data"]["MediaList"]["progress"]
             return entries
         except Exception as e:
-            print("Error in getProgressFor %s" % mediaId)
-            print(e)
+            self.logger.error("Error in getProgressFor %s", mediaId)
+            self.logger.error(e)
 
     def searchMediaBy(self, title) -> Mapping[int, TrackerSeries]:
         query = """
@@ -115,7 +117,7 @@ class AnilistGateway(TrackerGatewayInterface):
         result = self.__prepareRequest(query, variables)
         errors = result.get("errors")
         if errors is not None:
-            print(result["errors"])
+            self.logger.error(result["errors"])
             return
 
         # Merge all of the user's manga lists
@@ -180,7 +182,7 @@ class AnilistGateway(TrackerGatewayInterface):
         result = self.__prepareRequest(query, variables)
         errors = result.get("errors")
         if errors is not None:
-            print(result["errors"])
+            self.logger.error(result["errors"])
             return
 
         # Merge all of the user's manga lists
@@ -230,7 +232,6 @@ class AnilistGateway(TrackerGatewayInterface):
         result = self.__prepareRequest(query, variables)
         errors = result.get("errors")
         if errors is not None:
-            print(result["errors"])
+            self.logger.error(result["errors"])
             return
         self.cache = {}
-

@@ -43,25 +43,31 @@ A Docker image is available at [Docker Hub](https://hub.docker.com/r/raikon/mang
    - Use container paths for folders: `/mbase/data/manga.db`, `/mbase/source`, `/mbase/archive`, `/mbase/quarantine`
    - Set your Anilist token and other credentials
 
-2. Update `docker-compose.yml` to match your host folder paths:
-   - Point source folder to your Tachiyomi downloads location
-   - Set archive and quarantine folders to your desired locations
+2. Update `docker-compose.yml` if the default local data paths do not match your host folder paths:
+   - `./data/sources:/mbase/source:ro`
+   - `./data/archive:/mbase/archive`
+   - `./data/quarantine:/mbase/quarantine`
    - Database will be stored in `./data` by default
 
-3. Run the container:
-   ```bash
-   # Run once
-   docker-compose run --rm mangamanage
-   
-   # Or run as a service
-   docker-compose up
-   ```
+3. Run the API and web UI in a single container:
+    ```bash
+    docker compose up --build
+    ```
+
+   The web UI is available at `http://localhost:8080`. API calls are proxied through `http://localhost:8080/api`.
+
+4. Run one-off CLI commands with the same image:
+    ```bash
+    docker compose run --rm mangamanage python .
+    docker compose run --rm mangamanage python . --checkMissingChapters
+    docker compose run --rm mangamanage python . --checkMissingSQL
+    ```
 
 **Updating Anilist Token:**
 
 When your Anilist refresh token expires, simply:
 1. Edit `settings.ini` on your host machine with the new token
-2. Restart the container: `docker-compose restart mangamanage`
+2. Restart the containers: `docker compose restart`
 3. No rebuild required! The container reads the updated file.
 
 **Alternative: Using docker run**
@@ -75,7 +81,7 @@ docker run --rm \
   -v "/path/to/tachiyomi/downloads:/mbase/source:ro" \
   -v "/path/to/manga/archive:/mbase/archive" \
   -v "/path/to/manga/quarantine:/mbase/quarantine" \
-  raikon/mangamanage:latest
+  raikon/mangamanage:latest python .
 ```
 
 Remember to update the volume paths to match your system.

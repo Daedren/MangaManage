@@ -1,4 +1,5 @@
 import http.client
+import logging
 import urllib
 from cross.decorators import Logger
 from cross.debug import debugger_is_active
@@ -38,4 +39,5 @@ class PushoverGateway(PushServiceInterface):
 
 
 if __name__ == "__main__":
-    print(PushoverGateway.sendPush("test message"))
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger(__name__).info("Run PushoverGateway from the application container")

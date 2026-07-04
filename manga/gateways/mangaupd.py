@@ -49,10 +49,10 @@ class MangaUpdatesGateway:
             self.logger.debug(root.find('channel').find('title').text)
             chapters = list(map(lambda x: x.getchildren()[0].text, root.findall(".//item")))
             # Lots of stuff we don't care about in there.
-            valid_chapters = list(filter(lambda x: re.search("c\.([0-9]+\.?[0-9]*)\-?([0-9]+\.?[0-9]*)?", x), chapters))
+            valid_chapters = list(filter(lambda x: re.search(r"c\.([0-9]+\.?[0-9]*)-?([0-9]+\.?[0-9]*)?", x), chapters))
             return valid_chapters
         except StopIteration:
-            print(f"No chapters found")
+            self.logger.info("No chapters found")
             return None
 
     def __getMostSearchableTitle(self, titles: List[str]):
