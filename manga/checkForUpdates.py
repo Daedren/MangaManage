@@ -56,7 +56,7 @@ class CheckForUpdates:
             if not dbInfo["mangaUpdatesId"]:
                 continue
             if latestInMangaUpd > latestInDb and series.progress < latestInMangaUpd:
-                self.__print(series, latestInDb, latestInMangaUpd)
+                self.__log_update(series, latestInDb, latestInMangaUpd)
                 continue
             releaseTitles = self.mangaUpdatesGateway.latestReleasesForId(mangaUpdId)
             if releaseTitles is None or len(releaseTitles) == 0:
@@ -72,15 +72,16 @@ class CheckForUpdates:
                 intReleaseNum = int(releaseNum)
                 self.database.updateMangaUpdtLatestChapter(mangaUpdId, intReleaseNum)
                 if intReleaseNum > latestInDb and series.progress < intReleaseNum:
-                    self.__print(series, latestInDb, intReleaseNum)
+                    self.__log_update(series, latestInDb, intReleaseNum)
             except ValueError:
                 continue
     
-    def __print(self, series, latestInDb, latestInMangaUpd):
-        print(
-            (
-                f"{series.titles[0]} ({series.tracker_id})",
-                f"{latestInDb} in DB. Last read {series.progress}. ",
-                f"Latest chapter is {latestInMangaUpd}",
-            )
+    def __log_update(self, series, latestInDb, latestInMangaUpd):
+        self.logger.info(
+            "%s (%s) | %s in DB. Last read %s. Latest chapter is %s",
+            series.titles[0],
+            series.tracker_id,
+            latestInDb,
+            series.progress,
+            latestInMangaUpd,
         )

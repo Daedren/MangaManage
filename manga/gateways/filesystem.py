@@ -45,16 +45,17 @@ class FilesystemInterface:
         pass
 
 
+@Logger
 class FilesystemFakeGateway(FilesystemInterface):
     def deleteArchive(self, anilistId, chapterNumber):
         pass
 
     def deleteSourceChapter(self, location: str):
         if not os.path.exists(location):
-            print("source chapter doesn't exist")
-            print(location)
+            self.logger.info("source chapter doesn't exist")
+            self.logger.info(location)
             return
-        print(f"WOULD delete recursive directory at {location}")
+        self.logger.info(f"WOULD delete recursive directory at {location}")
 
 
 @Logger

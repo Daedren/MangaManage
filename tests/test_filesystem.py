@@ -174,7 +174,6 @@ class TestFilesystemGateway(unittest.TestCase):
         self.sut.put_comicinfo_in_cbz(comicinfo, cbz)
         with zipfile.ZipFile(cbz) as zf:
             files = zf.namelist()
-        print(files)
         self.assertTrue('ComicInfo.xml' in files)
         self.assertTrue(len(files) > 1)
 

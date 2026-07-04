@@ -50,7 +50,7 @@ class MainRunner:
 
     def execute(self, interactive=False):
         try:
-            print("aaaaaa")
+            self.logger.debug("Starting main runner")
             new_chapters: Set[Chapter] = set()
             dateScriptStart = datetime.datetime.now()
             # Globs chapters

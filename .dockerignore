@@ -1,0 +1,49 @@
+# Exclude settings.ini - must be provided at runtime via volume mount
+settings.ini
+
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+.venv
+venv
+env
+
+# Data directories - should be mounted as volumes
+data/
+TestingGround/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation and development files
+README.md
+LICENSE
+*.md
+onetimers/
+tests/
+stubs/
+
+# Database files
+*.db
+*.db-*
+*.csv

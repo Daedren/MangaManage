@@ -10,6 +10,10 @@ from appContainer import ApplicationContainer
 import configparser
 
 from manga.checkMissingSQL import CheckMissingChaptersInSQL
+from cross.last_run_logs import configure_console_logging, capture_last_run_logs
+
+
+logger = logging.getLogger(__name__)
 
 
 def main(
@@ -58,7 +62,7 @@ def main(
     )
 
     args = parser.parse_args()
-    print(args)
+    logger.info(args)
 
     if args.checkMissingSQL:
         checkMissingSQL.execute(fixAfter=args.force)
@@ -78,7 +82,7 @@ def main(
         if len(args.updateIds) == 2:
             updateTrackerIds.manualUpdateFor(args.updateIds[0], args.updateIds[1])
         else:
-            print("Invalid number of arguments")
+            logger.error("Invalid number of arguments")
         return
 
     mainRunner.execute(interactive=args.interactive)
@@ -92,13 +96,13 @@ if __name__ == "__main__":
     assert config is not None
     assert config["manga"]["sourcefolder"] is not None
 
-    handler = logging.StreamHandler(sys.stdout)
-    logging.basicConfig(level=config["system"]["loglevel"], handlers=[handler])
+    configure_console_logging(config["system"]["loglevel"], sys.stdout)
     application = ApplicationContainer(config)
-    main(
-        application.mainRunner,
-        application.manga.checkMissingSQL,
-        application.manga.checkGapsInChapters,
-        application.manga.updateTrackerIds,
-        application.manga.checkForUpdates,
-    )
+    with capture_last_run_logs(config, "CLI command"):
+        main(
+            application.mainRunner,
+            application.manga.checkMissingSQL,
+            application.manga.checkGapsInChapters,
+            application.manga.updateTrackerIds,
+            application.manga.checkForUpdates,
+        )

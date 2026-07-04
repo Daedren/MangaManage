@@ -1,9 +1,11 @@
 from pathlib import Path
 from .gateways.database import DatabaseGateway
+from cross.decorators import Logger
 import zipfile
 import uuid
 
 
+@Logger
 class CheckMissingChaptersInSQL:
     """Detects chapters in filesystem that aren't in SQL"""
 
@@ -20,7 +22,7 @@ class CheckMissingChaptersInSQL:
 
     def execute(self, fixAfter=False):
         archiveChapterGlob = self.archiveRootPath.glob("*/*.cbz")
-        print("checking")
+        self.logger.info("checking")
         for file in archiveChapterGlob:
             chapterNumber = file.stem
             anilistId = file.parent.name
@@ -28,11 +30,11 @@ class CheckMissingChaptersInSQL:
                 anilistId, chapterNumber
             )
             if not chapExistsInSQL:
-                print("File exist in disk, not in SQL")
-                print(file)
+                self.logger.info("File exist in disk, not in SQL")
+                self.logger.info(file)
                 if fixAfter:
                     self.__fixChapterTwo(file, chapterNumber, anilistId)
-                print("----")
+                self.logger.info("----")
 
     def __fixChapter(self, filePath, chapterNumber, anilistId):
         seriesName = self.database.getSeriesForAnilist(anilistId)
@@ -49,7 +51,7 @@ class CheckMissingChaptersInSQL:
         # Just insert into SQL
         # we have archivePath, chapterNumber, anilistId and now seriesName
         seriesName = self.database.getSeriesForAnilist(anilistId)
-        print(seriesName)
+        self.logger.info(seriesName)
         sourceFake = str(uuid.uuid4())
         self.database.insertChapter(
             seriesName, str(chapterNumber), str(filePath), sourceFake
