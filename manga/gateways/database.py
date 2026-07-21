@@ -34,19 +34,34 @@ class DatabaseGateway:
             rows = cur.fetchall()
             return rows
 
-    def getAllDetailedChapters(self):
+    def getAllDetailedChapters(self, active: int = 1, title: str = None, limit: int = 50, offset: int = 0):
+        limit = min(max(1, limit), 100)
         with self.__conn() as (_, cur):
-            query = """
-            SELECT manga.id, manga.series, chapter, creation_date, anilistId
+            conditions = ["manga.active = ?"]
+            filter_params = [active]
+            if title:
+                conditions.append("manga.series LIKE ?")
+                filter_params.append(f"%{title}%")
+            where = " AND ".join(conditions)
+
+            cur.execute(
+                f"SELECT COUNT(*) FROM manga INNER JOIN anilist ON manga.series = anilist.series WHERE {where}",
+                filter_params,
+            )
+            total = cur.fetchone()[0]
+
+            query = f"""
+            SELECT manga.id, manga.series, chapter, creation_date, anilistId, manga.active
             FROM manga
             INNER JOIN anilist
             ON manga.series = anilist.series
-            WHERE active = 1
-            ORDER BY manga.series, chapter
+            WHERE {where}
+            ORDER BY datetime(manga.creation_date) DESC
+            LIMIT ? OFFSET ?
             """
-            cur.execute(query)
+            cur.execute(query, filter_params + [limit, offset])
             rows = cur.fetchall()
-            return rows
+            return rows, total
 
     def getSeriesForAnilist(self, anilistId):
         with self.__conn() as (_, cur):

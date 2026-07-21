@@ -64,11 +64,13 @@ async def search_anilist(title: str):
 
 
 @app.get("/database/chapters")
-async def get_all_chapters():
-    """Get all chapters from the database."""
+async def get_all_chapters(active: int = 1, title: str = None, limit: int = 50, offset: int = 0):
+    """Get paginated chapters from the database."""
     try:
-        chapters = database_gateway.getAllDetailedChapters()
-        return {"chapters": chapters}
+        chapters, total = database_gateway.getAllDetailedChapters(
+            active=active, title=title, limit=limit, offset=offset
+        )
+        return {"chapters": chapters, "total": total, "limit": limit, "offset": offset}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

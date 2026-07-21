@@ -1,13 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import ChaptersView from '../views/ChaptersView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: ChaptersView,
+      name: 'chapters',
+      component: () => import('../views/ChaptersView.vue'),
     },
     {
       path: '/about',

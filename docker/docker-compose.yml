@@ -1,7 +1,8 @@
 services:
   mangamanage:
     build:
-      context: .
+      context: ..
+      dockerfile: docker/Dockerfile
       target: app
       args:
         VITE_API_BASE_URL: /api
@@ -9,16 +10,16 @@ services:
     restart: unless-stopped
     volumes:
       # Mount settings.ini from host - changes take effect on container restart
-      - ./settings.ini:/mbase/settings.ini:ro
+      - ../settings.ini:/mbase/settings.ini:ro
 
       # Mount data directories (adjust these paths to match your host system)
       # Database location
-      - ./data:/mbase/data
+      - ../data:/mbase/data
 
       # Manga folders - update the host paths to match your setup if needed
-      - ./data/sources:/mbase/source:ro
-      - ./data/archive:/mbase/archive
-      - ./data/quarantine:/mbase/quarantine
+      - ../data/sources:/mbase/source:ro
+      - ../data/archive:/mbase/archive
+      - ../data/quarantine:/mbase/quarantine
 
       # Optional: Symlink folder (uncomment and set path if needed)
       # - /path/to/manga/symlinks:/mbase/symlinks
@@ -30,5 +31,5 @@ services:
       - "8080:8080"
 
 # Run CLI commands with the same image, for example:
-# docker compose run --rm mangamanage python .
-# docker compose run --rm mangamanage python . --checkMissingChapters
+# docker compose -f docker/docker-compose.yml run --rm mangamanage python .
+# docker compose -f docker/docker-compose.yml run --rm mangamanage python . --checkMissingChapters
