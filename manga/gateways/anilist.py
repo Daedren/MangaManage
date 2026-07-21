@@ -19,6 +19,8 @@ class TrackerGatewayInterface:
     def getAllEntries(self, reading_only: bool = False) -> Mapping[int, TrackerSeries]:
         pass
 
+    def clearCache(self):
+        pass
 
 @Logger
 class AnilistGateway(TrackerGatewayInterface):
@@ -234,4 +236,7 @@ class AnilistGateway(TrackerGatewayInterface):
         if errors is not None:
             self.logger.error(result["errors"])
             return
+        self.cache = {}
+
+    def clearCache(self):
         self.cache = {}

@@ -89,6 +89,7 @@ async def get_logs():
 async def process_source():
     """Run the default CLI processing task."""
     try:
+        anilist_gateway.clearCache()
         with capture_last_run_logs(config, "API process source"):
             application_container.mainRunner.execute(interactive=False)
         return {"message": "Source processing completed"}
@@ -111,6 +112,7 @@ async def check_missing_sql(fix: bool = False):
 async def check_missing_chapters():
     """Check all archived series for missing chapter gaps."""
     try:
+        anilist_gateway.clearCache()
         with capture_last_run_logs(config, "API check missing chapters"):
             gaps = application_container.manga.checkGapsInChapters.getGapsFromChaptersSince(
                 datetime.datetime.utcfromtimestamp(0)
@@ -127,6 +129,7 @@ async def check_missing_chapters():
 async def check_manga_updates():
     """Run the MangaUpdates CLI check."""
     try:
+        anilist_gateway.clearCache()
         with capture_last_run_logs(config, "API check MangaUpdates"):
             application_container.manga.checkForUpdates.updateLocalIds()
             application_container.manga.checkForUpdates.checkForUpdates()
@@ -139,6 +142,7 @@ async def check_manga_updates():
 async def update_anilist_id(request: UpdateAnilistIdRequest):
     """Manually update the AniList ID for a series."""
     try:
+        anilist_gateway.clearCache()
         with capture_last_run_logs(config, f"API update AniList ID for {request.series}"):
             application_container.manga.updateTrackerIds.manualUpdateFor(
                 request.series, request.anilistId

@@ -14,6 +14,9 @@ class FakeAnilistGateway(TrackerGatewayInterface):
                 to_return[int(item[0])] = item[1]
             return to_return
 
+    def clearCache(self):
+        pass
+
     def __jsonDecode(self, param_dict):
         # return TrackerSeries(), titles, status, chapters, country_of_origin, progress)
         return namedtuple('X', list(param_dict.keys()))(*param_dict.values())
