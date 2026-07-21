@@ -10,9 +10,8 @@ const titleFilter = ref('');
 const currentPage = ref(1);
 
 const totalPages = computed(() => Math.max(1, Math.ceil(chaptersStore.total / PAGE_SIZE)));
-
 const rangeStart = computed(() => (currentPage.value - 1) * PAGE_SIZE + 1);
-const rangeEnd = computed(() => Math.min(currentPage.value * PAGE_SIZE, chaptersStore.total));
+const rangeEnd   = computed(() => Math.min(currentPage.value * PAGE_SIZE, chaptersStore.total));
 
 const fetch = (page: number) => {
   currentPage.value = page;
@@ -35,199 +34,310 @@ onMounted(() => fetch(1));
 
 <template>
   <main class="chapters-page">
-    <section class="chapters-header">
-      <div>
-        <h1>Chapters</h1>
-        <p>Browse archived chapters in the database.</p>
-      </div>
-    </section>
 
-    <section class="filters">
-      <label>
-        Active
-        <select v-model="activeFilter" @change="applyFilters">
-          <option :value="1">Active (1)</option>
-          <option :value="0">Inactive (0)</option>
+    <!-- Page header -->
+    <header class="page-header">
+      <div class="page-header__text">
+        <h1>Chapters</h1>
+        <p class="page-subtitle">Browse archived chapters in the database.</p>
+      </div>
+    </header>
+
+    <!-- Filter bar -->
+    <section class="filter-bar" aria-label="Filter chapters">
+      <label class="filter-field">
+        <span class="field-label">Status</span>
+        <select v-model="activeFilter" @change="applyFilters" aria-label="Filter by status">
+          <option :value="1">Active</option>
+          <option :value="0">Inactive</option>
         </select>
       </label>
-      <label>
-        Title
+
+      <label class="filter-field filter-field--grow">
+        <span class="field-label">Series</span>
         <input
           v-model="titleFilter"
           type="text"
           placeholder="Search by series name"
           @keydown="handleTitleKeydown"
+          aria-label="Search by series name"
         />
       </label>
-      <button @click="applyFilters">Search</button>
+
+      <button @click="applyFilters" class="filter-bar__action">Search</button>
     </section>
 
-    <div class="meta-row">
-      <p class="count" v-if="chaptersStore.total > 0">
-        Showing {{ rangeStart }}–{{ rangeEnd }} of {{ chaptersStore.total }} chapter{{ chaptersStore.total !== 1 ? 's' : '' }}
-      </p>
-      <p class="empty" v-else>No chapters found.</p>
+    <!-- Result count -->
+    <div class="meta-row" aria-live="polite" aria-atomic="true">
+      <span class="meta-count" v-if="chaptersStore.total > 0">
+        {{ rangeStart }}–{{ rangeEnd }}
+        <span class="meta-of">of</span>
+        {{ chaptersStore.total.toLocaleString() }}
+        {{ chaptersStore.total !== 1 ? 'chapters' : 'chapter' }}
+      </span>
+      <span class="meta-empty" v-else>No chapters found.</span>
     </div>
 
+    <!-- Data table -->
     <div class="table-wrapper" v-if="chaptersStore.chapters.length > 0">
       <table>
         <thead>
           <tr>
-            <th>Series</th>
-            <th>Chapter</th>
-            <th>Date Added</th>
-            <th>AniList ID</th>
-            <th>Active</th>
+            <th scope="col">Series</th>
+            <th scope="col" class="col-num">Chapter</th>
+            <th scope="col" class="col-date">Date Added</th>
+            <th scope="col" class="col-num">AniList ID</th>
+            <th scope="col" class="col-num">Active</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="chapter in chaptersStore.chapters" :key="chapter.id">
-            <td>{{ chapter.series_name }}</td>
-            <td class="num">{{ chapter.chapter_number }}</td>
-            <td class="date">{{ chapter.creation_date ?? '—' }}</td>
-            <td class="num">{{ chapter.anilistId ?? '—' }}</td>
-            <td class="num">{{ chapter.active }}</td>
+            <td class="col-series">{{ chapter.series_name }}</td>
+            <td class="col-num">{{ chapter.chapter_number }}</td>
+            <td class="col-date">{{ chapter.creation_date ?? '—' }}</td>
+            <td class="col-num">{{ chapter.anilistId ?? '—' }}</td>
+            <td class="col-num">
+              <span :class="['status-badge', chapter.active ? 'status-badge--on' : 'status-badge--off']">
+                {{ chapter.active ? 'Y' : 'N' }}
+              </span>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <nav class="pagination" v-if="totalPages > 1">
-      <button :disabled="currentPage === 1" @click="fetch(currentPage - 1)">← Prev</button>
-      <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
-      <button :disabled="currentPage === totalPages" @click="fetch(currentPage + 1)">Next →</button>
+    <!-- Pagination -->
+    <nav class="pagination" v-if="totalPages > 1" aria-label="Page navigation">
+      <button
+        :disabled="currentPage === 1"
+        @click="fetch(currentPage - 1)"
+        aria-label="Previous page"
+        class="ghost"
+      >← Prev</button>
+
+      <span class="pagination__info">{{ currentPage }} / {{ totalPages }}</span>
+
+      <button
+        :disabled="currentPage === totalPages"
+        @click="fetch(currentPage + 1)"
+        aria-label="Next page"
+        class="ghost"
+      >Next →</button>
     </nav>
+
   </main>
 </template>
 
 <style scoped>
 .chapters-page {
-  width: min(1100px, 100%);
-  margin: 0 auto;
+  /* inherits max-width + padding from main.css */
 }
 
-.chapters-header {
-  margin-bottom: 1rem;
+/* ─── Page header ────────────────────────────────────────────────── */
+.page-header {
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-rule);
 }
 
-.chapters-header p {
-  margin: 0.25rem 0 0;
-  color: #5f6f5f;
+.page-subtitle {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-ink-2);
+  max-width: none;
 }
 
-.filters {
+/* ─── Filter bar ─────────────────────────────────────────────────── */
+.filter-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
-.filters label {
+.filter-field {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  font-weight: 700;
-  font-size: 0.9rem;
+  gap: var(--space-1);
 }
 
-select,
-input[type='text'] {
-  padding: 0.5rem;
-  border: 1px solid #adc0aa;
-  border-radius: 4px;
-  font-size: 0.95rem;
+.filter-field--grow {
+  flex: 1 1 220px;
 }
 
-input[type='text'] {
-  min-width: 220px;
+.field-label {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-ink-2);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 
-button {
-  padding: 0.55rem 0.9rem;
-  background-color: #315c3a;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 700;
+.filter-bar select,
+.filter-bar input[type='text'] {
+  width: 100%;
+}
+
+.filter-bar__action {
   align-self: flex-end;
 }
 
-button:hover:not(:disabled) {
-  background-color: #264a2e;
-}
-
-button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
+/* ─── Meta row ───────────────────────────────────────────────────── */
 .meta-row {
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-3);
 }
 
-.count {
-  font-size: 0.85rem;
-  color: #5f6f5f;
-  margin: 0;
+.meta-count {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  color: var(--color-ink-3);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
 }
 
-.empty {
-  color: #5f6f5f;
-  margin: 0;
+.meta-of {
+  opacity: 0.55;
 }
 
+.meta-empty {
+  font-size: var(--text-sm);
+  color: var(--color-ink-3);
+}
+
+/* ─── Table ──────────────────────────────────────────────────────── */
 .table-wrapper {
   overflow-x: auto;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-md);
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 
 thead tr {
-  background: #edf4eb;
+  background: var(--color-paper-2);
+  border-bottom: 1.5px solid var(--color-rule-strong);
 }
 
 th {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-ink-2);
   text-align: left;
-  padding: 0.6rem 0.75rem;
-  font-weight: 700;
-  border-bottom: 2px solid #c9d5c7;
+  padding: var(--space-3) var(--space-4);
   white-space: nowrap;
 }
 
 td {
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid #e2ebe0;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-rule);
+  color: var(--color-ink);
+  vertical-align: middle;
 }
 
-td.num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-td.date {
-  white-space: nowrap;
-  color: #4f5d4f;
+tbody tr:last-child td {
+  border-bottom: none;
 }
 
 tbody tr:hover {
-  background: #f4f9f3;
+  background: var(--color-paper-3);
 }
 
+tbody tr:focus-within {
+  background: var(--color-paper-3);
+}
+
+.col-num {
+  text-align: right;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-xs);
+  letter-spacing: 0.03em;
+}
+
+.col-date {
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  color: var(--color-ink-2);
+  letter-spacing: 0.03em;
+}
+
+.col-series {
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Active/inactive badge */
+.status-badge {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.06em;
+}
+
+.status-badge--on {
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+}
+
+.status-badge--off {
+  background: var(--color-paper-3);
+  color: var(--color-ink-3);
+}
+
+/* ─── Pagination ─────────────────────────────────────────────────── */
 .pagination {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
 }
 
-.page-info {
-  font-size: 0.9rem;
-  color: #4f5d4f;
+.pagination__info {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  color: var(--color-ink-3);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  min-width: 5ch;
+  text-align: center;
+}
+
+/* ─── Mobile ─────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-bar__action {
+    align-self: flex-start;
+  }
+
+  th.col-date,
+  td.col-date {
+    display: none;
+  }
+}
+
+@media (max-width: 414px) {
+  th.col-num:last-child,
+  td.col-num:last-child {
+    display: none;
+  }
 }
 </style>

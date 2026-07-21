@@ -1,0 +1,146 @@
+/* Hallmark · genre: editorial · macrostructure: n/a (app-shell redesign) · theme: custom-technical
+ * vibe: "forest-green terminal, sparse, operator-grade"
+ * paper: oklch(97% 0.006 145) · accent: oklch(42% 0.11 145) · forest-green
+ * display: DM Mono · body: Inter Tight
+ * axes: light / mono / cool-green
+ * nav: N9 edge-aligned · footer: Ft2 inline single line
+ * contrast: pass (verified body ink-on-paper > 7:1)
+ */
+
+/* ─── Colour tokens ──────────────────────────────────────────────────── */
+:root {
+  /* Paper / surface */
+  --color-paper:        oklch(97%  0.006 145);   /* page background, tinted white */
+  --color-paper-2:      oklch(94%  0.008 145);   /* card / inset surface */
+  --color-paper-3:      oklch(91%  0.010 145);   /* hover state, active row */
+  --color-paper-4:      oklch(88%  0.010 145);   /* pressed / selected */
+
+  /* Ink / text */
+  --color-ink:          oklch(17%  0.012 145);   /* primary text */
+  --color-ink-2:        oklch(36%  0.010 145);   /* secondary text, labels */
+  --color-ink-3:        oklch(52%  0.008 145);   /* muted / placeholder */
+
+  /* Rules / borders */
+  --color-rule:         oklch(83%  0.009 145);   /* default border */
+  --color-rule-strong:  oklch(68%  0.010 145);   /* table header rule */
+
+  /* Accent — forest green */
+  --color-accent:       oklch(42%  0.11  145);   /* primary action, links, active nav */
+  --color-accent-hover: oklch(36%  0.11  145);   /* button hover */
+  --color-accent-muted: oklch(72%  0.06  145);   /* faint tint, badge bg */
+
+  /* Semantic state colours */
+  --color-error:        oklch(44%  0.18   25);   /* error text */
+  --color-error-bg:     oklch(96%  0.018  25);   /* error surface */
+  --color-warning:      oklch(44%  0.14   55);   /* warning / destructive */
+  --color-warning-bg:   oklch(96%  0.014  55);   /* warning surface */
+  --color-success:      oklch(40%  0.10  145);   /* success text = accent */
+  --color-running:      oklch(44%  0.12   70);   /* running / in-progress */
+
+  /* Focus ring */
+  --color-focus:        oklch(55%  0.17  145);
+
+  /* Terminal surface (Logs pane) */
+  --color-term-bg:      oklch(13%  0.012 145);
+  --color-term-ink:     oklch(88%  0.030 145);
+  --color-term-muted:   oklch(56%  0.018 145);
+}
+
+/* Dark mode — lightness + chroma shift only, hue stays 145 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper:        oklch(14%  0.010 145);
+    --color-paper-2:      oklch(18%  0.010 145);
+    --color-paper-3:      oklch(22%  0.012 145);
+    --color-paper-4:      oklch(26%  0.012 145);
+
+    --color-ink:          oklch(94%  0.006 145);
+    --color-ink-2:        oklch(74%  0.008 145);
+    --color-ink-3:        oklch(54%  0.008 145);
+
+    --color-rule:         oklch(28%  0.010 145);
+    --color-rule-strong:  oklch(40%  0.010 145);
+
+    --color-accent:       oklch(62%  0.10  145);
+    --color-accent-hover: oklch(68%  0.10  145);
+    --color-accent-muted: oklch(28%  0.06  145);
+
+    --color-error:        oklch(66%  0.16   25);
+    --color-error-bg:     oklch(20%  0.020  25);
+    --color-warning:      oklch(68%  0.12   55);
+    --color-warning-bg:   oklch(20%  0.016  55);
+    --color-success:      oklch(62%  0.10  145);
+    --color-running:      oklch(68%  0.10   70);
+
+    --color-focus:        oklch(70%  0.15  145);
+  }
+}
+
+/* ─── Typography tokens ──────────────────────────────────────────────── */
+:root {
+  --font-display: "DM Mono", ui-monospace, "Cascadia Code", monospace;
+  --font-body:    "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+
+  /* Type scale — major third (×1.25) anchored at 1rem = 16px */
+  --text-xs:   0.64rem;    /*  ~10px */
+  --text-sm:   0.8rem;     /*  ~13px */
+  --text-base: 1rem;       /*   16px */
+  --text-md:   1.25rem;    /*   20px */
+  --text-lg:   1.563rem;   /*   25px */
+  --text-xl:   1.953rem;   /*   31px */
+  --text-2xl:  2.441rem;   /*   39px */
+  --text-3xl:  3.052rem;   /*   49px */
+
+  /* Line heights */
+  --leading-tight:  1.15;
+  --leading-snug:   1.35;
+  --leading-normal: 1.6;
+
+  /* Weights */
+  --weight-normal:  400;
+  --weight-medium:  500;
+  --weight-bold:    700;
+}
+
+/* ─── Spacing tokens — 4pt scale ─────────────────────────────────────── */
+:root {
+  --space-1:   0.25rem;   /*  4px */
+  --space-2:   0.5rem;    /*  8px */
+  --space-3:   0.75rem;   /* 12px */
+  --space-4:   1rem;      /* 16px */
+  --space-5:   1.25rem;   /* 20px */
+  --space-6:   1.5rem;    /* 24px */
+  --space-8:   2rem;      /* 32px */
+  --space-10:  2.5rem;    /* 40px */
+  --space-12:  3rem;      /* 48px */
+  --space-16:  4rem;      /* 64px */
+
+  /* Semantic aliases */
+  --space-xs:   var(--space-2);
+  --space-sm:   var(--space-3);
+  --space-md:   var(--space-4);
+  --space-lg:   var(--space-6);
+  --space-xl:   var(--space-8);
+  --space-2xl:  var(--space-12);
+  --space-3xl:  var(--space-16);
+}
+
+/* ─── Layout tokens ──────────────────────────────────────────────────── */
+:root {
+  --layout-max:        1140px;
+  --layout-page-pad:   var(--space-6);
+  --radius-sm:         3px;
+  --radius-md:         5px;
+  --radius-lg:         8px;
+}
+
+/* ─── Easing tokens ──────────────────────────────────────────────────── */
+:root {
+  --ease-out:    cubic-bezier(0.0, 0, 0.2, 1);
+  --ease-in:     cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --dur-instant:  80ms;
+  --dur-fast:     150ms;
+  --dur-normal:   220ms;
+}

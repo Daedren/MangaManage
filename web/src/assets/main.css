@@ -1,31 +1,22 @@
 @import './base.css';
 
+/* Page shell — flex column so footer sits at the bottom */
 #app {
-  max-width: 1280px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--layout-max);
   margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
+  padding: var(--space-8) var(--layout-page-pad);
 }
 
-a {
-  transition: 0.4s;
-  padding: 3px;
-}
-
-@media (hover: hover) {
-  a:hover {
-    text-decoration: underline;
+@media (max-width: 640px) {
+  main {
+    padding: var(--space-6) var(--space-4);
   }
-}
-
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
-}
-
-ul {
-  list-style: none;
-  padding: 0;
 }
