@@ -60,7 +60,19 @@ class MainRunner:
                 chapterPath = Path(chapterPathStr)
                 chapterName = html.unescape(chapterPath.stem)
                 seriesName = html.unescape(chapterPath.parent.name)
-                
+
+                sourceName = chapterPath.parent.parent.name
+                if (
+                    "mangadex" in sourceName.lower()
+                    and self.filesystem.count_source_images(chapterPath) == 1
+                ):
+                    self.logger.info(f"Discarding one-page MangaDex chapter: {chapterPath}")
+                    self.filesystem.deleteSourceChapter(location=chapterPathStr)
+                    self.pushNotification.sendPush(
+                        f"Discarded one-page MangaDex chapter: {seriesName} {chapterName}"
+                    )
+                    continue
+
                 # Try to get AniList ID from database first
                 anilistId = self.database.getAnilistIDForSeries(seriesName)
                 

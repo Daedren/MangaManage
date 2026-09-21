@@ -6,6 +6,8 @@ import shutil
 from cross.decorators import Logger
 from typing import BinaryIO, Optional
 
+IMAGE_SUFFIXES = {".avif", ".bmp", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
+
 
 class FilesystemInterface:
     def deleteArchive(self, anilistId, chapterNumber):
@@ -42,6 +44,9 @@ class FilesystemInterface:
 
     def extract_anilist_id_from_cbz(self, cbz_path: Path) -> Optional[int]:
         '''Extracts AniList ID from ComicInfo.xml Web field in a CBZ file'''
+        pass
+
+    def count_source_images(self, chapter_path: Path) -> int:
         pass
 
 
@@ -216,3 +221,22 @@ class FilesystemGateway(FilesystemInterface):
             return None
         
         return None
+
+    def count_source_images(self, chapter_path: Path) -> int:
+        if chapter_path.is_file():
+            with zipfile.ZipFile(chapter_path) as archive:
+                return sum(
+                    1
+                    for entry in archive.infolist()
+                    if not entry.is_dir()
+                    and not Path(entry.filename).name.startswith(".")
+                    and Path(entry.filename).suffix.lower() in IMAGE_SUFFIXES
+                )
+
+        return sum(
+            1
+            for image_path in chapter_path.rglob("*")
+            if image_path.is_file()
+            and not image_path.name.startswith(".")
+            and image_path.suffix.lower() in IMAGE_SUFFIXES
+        )
