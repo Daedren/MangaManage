@@ -8,6 +8,7 @@ const PAGE_SIZE = 50;
 const activeFilter = ref<0 | 1>(1);
 const titleFilter = ref('');
 const currentPage = ref(1);
+const selectedChapters = ref<number[]>([]);
 
 const totalPages = computed(() => Math.max(1, Math.ceil(chaptersStore.total / PAGE_SIZE)));
 const rangeStart = computed(() => (currentPage.value - 1) * PAGE_SIZE + 1);
@@ -24,6 +25,39 @@ const fetch = (page: number) => {
 };
 
 const applyFilters = () => fetch(1);
+
+const allVisibleSelected = computed(
+  () => chaptersStore.chapters.length > 0
+    && chaptersStore.chapters.every((chapter) => selectedChapters.value.includes(chapter.id)),
+);
+
+const toggleVisibleSelection = () => {
+  const visibleChapterIds = chaptersStore.chapters.map((chapter) => chapter.id);
+  if (allVisibleSelected.value) {
+    selectedChapters.value = selectedChapters.value.filter((id) => !visibleChapterIds.includes(id));
+  } else {
+    selectedChapters.value = [...new Set([...selectedChapters.value, ...visibleChapterIds])];
+  }
+};
+
+const deleteSelectedChapters = async () => {
+  const selectedCount = selectedChapters.value.length;
+  if (selectedCount === 0) return;
+
+  if (!window.confirm(`Delete ${selectedCount} selected chapter${selectedCount === 1 ? '' : 's'}?`)) {
+    return;
+  }
+
+  const deleted = await chaptersStore.deleteChapters(selectedChapters.value);
+  if (!deleted) return;
+
+  selectedChapters.value = [];
+
+  const page = chaptersStore.chapters.length === 0 && currentPage.value > 1
+    ? currentPage.value - 1
+    : currentPage.value;
+  fetch(page);
+};
 
 const handleTitleKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Enter') applyFilters();
@@ -76,6 +110,13 @@ onMounted(() => fetch(1));
         {{ chaptersStore.total !== 1 ? 'chapters' : 'chapter' }}
       </span>
       <span class="meta-empty" v-else>No chapters found.</span>
+      <button
+        class="delete-selected"
+        :disabled="selectedChapters.length === 0"
+        @click="deleteSelectedChapters"
+      >
+        Delete selected<span v-if="selectedChapters.length"> ({{ selectedChapters.length }})</span>
+      </button>
     </div>
 
     <!-- Data table -->
@@ -83,6 +124,14 @@ onMounted(() => fetch(1));
       <table>
         <thead>
           <tr>
+            <th scope="col" class="col-select">
+              <input
+                type="checkbox"
+                :checked="allVisibleSelected"
+                :aria-label="allVisibleSelected ? 'Deselect all visible chapters' : 'Select all visible chapters'"
+                @change="toggleVisibleSelection"
+              />
+            </th>
             <th scope="col">Series</th>
             <th scope="col" class="col-num">Chapter</th>
             <th scope="col" class="col-date">Date Added</th>
@@ -92,6 +141,14 @@ onMounted(() => fetch(1));
         </thead>
         <tbody>
           <tr v-for="chapter in chaptersStore.chapters" :key="chapter.id">
+            <td class="col-select">
+              <input
+                v-model="selectedChapters"
+                type="checkbox"
+                :value="chapter.id"
+                :aria-label="`Select ${chapter.series_name}, chapter ${chapter.chapter_number}`"
+              />
+            </td>
             <td class="col-series">{{ chapter.series_name }}</td>
             <td class="col-num">{{ chapter.chapter_number }}</td>
             <td class="col-date">{{ chapter.creation_date ?? '—' }}</td>
@@ -186,6 +243,10 @@ onMounted(() => fetch(1));
 
 /* ─── Meta row ───────────────────────────────────────────────────── */
 .meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   margin-bottom: var(--space-3);
 }
 
@@ -204,6 +265,10 @@ onMounted(() => fetch(1));
 .meta-empty {
   font-size: var(--text-sm);
   color: var(--color-ink-3);
+}
+
+.delete-selected {
+  flex: 0 0 auto;
 }
 
 /* ─── Table ──────────────────────────────────────────────────────── */
@@ -261,6 +326,17 @@ tbody tr:focus-within {
   font-variant-numeric: tabular-nums;
   font-size: var(--text-xs);
   letter-spacing: 0.03em;
+}
+
+.col-select {
+  width: 1%;
+  padding-right: 0;
+  text-align: center;
+}
+
+.col-select input {
+  display: block;
+  margin: 0;
 }
 
 .col-date {
@@ -326,6 +402,11 @@ tbody tr:focus-within {
 
   .filter-bar__action {
     align-self: flex-start;
+  }
+
+  .meta-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   th.col-date,

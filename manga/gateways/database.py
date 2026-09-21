@@ -118,6 +118,18 @@ class DatabaseGateway:
             cur.execute(query, (chapterId,))
             conn.commit()
 
+    def getChapterDetailsById(self, chapterId):
+        with self.__conn() as (_, cur):
+            query = """
+            SELECT manga.chapter, anilist.anilistId
+            FROM manga
+            INNER JOIN anilist
+            ON manga.series = anilist.series
+            WHERE manga.id = ?
+            """
+            cur.execute(query, (chapterId,))
+            return cur.fetchone()
+
     def insertChapter(self, seriesName, chapterNumber: str, archivePath, sourcePath):
         with self.__conn() as (conn, cur):
 

@@ -63,8 +63,10 @@ export const useChaptersStore = defineStore('chapters', () => {
             );
             chapters.value = chapters.value.filter((chapter) => !chapterIds.includes(chapter.id));
             total.value -= chapterIds.length;
+            return true;
         } catch (error) {
             console.error('Error deleting chapters:', error);
+            return false;
         }
     };
 

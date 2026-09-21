@@ -184,9 +184,12 @@ async def insert_chapter(series_name: str, chapter_number: str, archive_path: st
 
 @app.delete("/database/chapter")
 async def delete_chapter(database_id: int):
-    """Delete a chapter from the database."""
+    """Delete a chapter archive and mark its database record inactive."""
     try:
         with capture_last_run_logs(config, f"API delete chapter {database_id}"):
+            chapter = database_gateway.getChapterDetailsById(database_id)
+            if chapter is not None:
+                filesystem_gateway.deleteArchive(chapter["anilistId"], chapter["chapter"])
             database_gateway.deleteChapterById(database_id)
         return {"message": "Chapter deleted successfully"}
     except Exception as e:
