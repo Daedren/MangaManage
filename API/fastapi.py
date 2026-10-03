@@ -1,5 +1,7 @@
 import configparser
 import datetime
+import http.client
+import logging
 from typing import Literal
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +9,7 @@ from pydantic import BaseModel
 from appContainer import ApplicationContainer
 from cross.last_run_logs import capture_last_run_logs, get_last_run_log_path
 from manga.missingChapters import CheckGapsInChapters
+from manga.gateways.utils.exceptions import AnilistRequestException, TokenRefreshException
 
 # Load configuration
 config = configparser.ConfigParser(allow_no_value=True)
@@ -55,6 +58,48 @@ async def get_anilist_progress(media_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def get_all_read_progress() -> tuple[dict[int, int] | None, str | None]:
+    """Use the gateway's cached, general list query, never one request per series."""
+    try:
+        entries = anilist_gateway.getAllEntries(reading_only=False)
+        if entries is not None:
+            return {media_id: entry.progress for media_id, entry in entries.items()}, None
+        return None, "AniList returned no read-progress response."
+    except TokenRefreshException:
+        reason = "AniList authentication needs renewal; refresh the token in settings.ini."
+    except AnilistRequestException as error:
+        if error.status == 429:
+            reason = "AniList rate limit reached (HTTP 429); try again later."
+        elif error.status == 401:
+            reason = "AniList authentication failed (HTTP 401); refresh the token in settings.ini."
+        elif error.status == 403:
+            reason = "AniList access denied (HTTP 403); check the token and account access."
+        elif error.status is not None:
+            reason = f"AniList API request failed (status {error.status}); try again later."
+        else:
+            reason = "AniList rejected the read-progress query; check server logs."
+    except TimeoutError:
+        reason = "AniList read-progress request timed out; try again later."
+    except (OSError, http.client.HTTPException):
+        reason = "Could not connect to AniList to retrieve read progress; check the connection."
+    except (ValueError, KeyError, TypeError, AttributeError):
+        logging.getLogger(__name__).warning("Invalid AniList read-progress response", exc_info=True)
+        reason = "AniList returned an invalid read-progress response; check server logs."
+    except Exception as error:
+        logging.getLogger(__name__).warning("Unable to retrieve AniList read progress", exc_info=True)
+        reason = f"AniList read-progress lookup failed ({type(error).__name__}); check server logs."
+    return None, reason
+
+
+@app.get("/anilist/progress")
+def get_anilist_progress_list():
+    """Get read progress across all AniList lists using one cached bulk lookup."""
+    progress, reason = get_all_read_progress()
+    if progress is None:
+        raise HTTPException(status_code=503, detail=reason)
+    return {"progress": progress}
+
+
 @app.get("/anilist/search")
 async def search_anilist(title: str):
     """Search for a media title in Anilist."""
@@ -78,7 +123,7 @@ async def get_all_chapters(active: int = 1, title: str = None, limit: int = 50, 
 
 
 @app.get("/database/series")
-async def get_all_series(
+def get_all_series(
     title: str = None,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -93,6 +138,45 @@ async def get_all_series(
             quarantined_ids=filesystem_gateway.getQuarantinedSeries(),
             quarantined=quarantined, sort_by=sort_by, sort_direction=sort_direction,
         )
+        # Only fetch the bulk snapshot when stored chapters cannot establish the status.
+        needs_progress = any(
+            item.get("mangaupdates_latest_chapter") is not None
+            and (item.get("latest_stored_chapter") or 0) < item["mangaupdates_latest_chapter"]
+            and item["anilistId"] is not None
+            for item in series
+        )
+        progress, progress_error = get_all_read_progress() if needs_progress else (None, None)
+        for item in series:
+            latest = item.get("mangaupdates_latest_chapter")
+            stored = item.get("latest_stored_chapter") or 0
+            last_read = progress.get(item["anilistId"]) if progress is not None else None
+            item["anilist_last_read"] = last_read
+            reason = None
+            if latest is None:
+                status = "unavailable"
+                if item["anilistId"] is None:
+                    reason = "No AniList ID assigned; MangaUpdates cannot be linked."
+                elif item.get("mangaupdates_id") is None:
+                    reason = "No MangaUpdates ID linked to this series."
+                else:
+                    reason = "MangaUpdates ID is linked, but no latest chapter has been cached."
+            elif stored >= latest or (last_read is not None and last_read >= latest):
+                status = "up_to_date"
+            elif item["anilistId"] is None:
+                status = "unknown"
+                reason = "Stored chapters are behind; no AniList ID assigned to check read progress."
+            elif progress is None:
+                status = "unknown"
+                reason = progress_error
+            elif item["anilistId"] in progress and last_read is None:
+                status = "unknown"
+                reason = "AniList returned no read progress for this series."
+            else:
+                status = "missing_chapters"
+                if item["anilistId"] not in progress:
+                    reason = "Stored chapters are behind; this series is not on your AniList list."
+            item["mangaupdates_status"] = status
+            item["mangaupdates_status_reason"] = reason
         return {"series": series, "total": total, "limit": limit, "offset": offset}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

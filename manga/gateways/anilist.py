@@ -2,7 +2,7 @@ import http.client
 import json
 from functools import reduce
 from typing import List, Mapping
-from manga.gateways.utils.exceptions import TokenRefreshException
+from manga.gateways.utils.exceptions import AnilistRequestException, TokenRefreshException
 from models.tracker import TrackerSeries
 import configparser
 import sys
@@ -49,7 +49,7 @@ class AnilistGateway(TrackerGatewayInterface):
 
         if res.status != 200:
             result = self.handle_anilist_errors(res, result, query, variables)
-        elif res.status == 200:
+        elif res.status == 200 and not result.get("errors"):
             self.cache[query_key] = result
 
         return result
@@ -64,6 +64,7 @@ class AnilistGateway(TrackerGatewayInterface):
         elif connection.status == 400:
             self.refresh_token()
             return self.__prepareRequest(original_query, query_variables)
+        raise AnilistRequestException(connection.status)
 
     # Ask user for new Anilist token
     def refresh_token(self):
@@ -185,12 +186,13 @@ class AnilistGateway(TrackerGatewayInterface):
         errors = result.get("errors")
         if errors is not None:
             self.logger.error(result["errors"])
-            return
+            status = next((error.get("status") for error in errors if error.get("status") is not None), None)
+            raise AnilistRequestException(status)
 
         # Merge all of the user's manga lists
         lists = result["data"]["MediaListCollection"]["lists"]
         mapped = map((lambda x: x["entries"]), lists)
-        reduced = reduce((lambda x, y: x + y), mapped)
+        reduced = reduce((lambda x, y: x + y), mapped, [])
 
         models: List[TrackerSeries] = []
         for series in reduced:

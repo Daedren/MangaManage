@@ -8,6 +8,12 @@ interface Series {
     anilistId: number | null;
     last_updated: string | null;
     quarantined: boolean;
+    latest_stored_chapter: number | null;
+    mangaupdates_id: number | null;
+    mangaupdates_latest_chapter: number | null;
+    anilist_last_read: number | null;
+    mangaupdates_status: 'up_to_date' | 'missing_chapters' | 'unavailable' | 'unknown';
+    mangaupdates_status_reason: string | null;
 }
 
 export type SortColumn = 'series' | 'last_updated' | 'quarantined';

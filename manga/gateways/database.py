@@ -78,12 +78,16 @@ class DatabaseGateway:
         params = ([f"%{title}%"] if title else []) + ids
         cte = f"""
             WITH grouped AS (
-                SELECT series, MAX(datetime(creation_date)) AS last_updated
+                SELECT series, MAX(datetime(creation_date)) AS last_updated,
+                       MAX(CASE WHEN active = 1 THEN CAST(chapter AS REAL) END) AS latest_stored_chapter
                 FROM manga {where} GROUP BY series
             ), detailed AS (
                 SELECT grouped.series, anilist.anilistId, grouped.last_updated,
+                       grouped.latest_stored_chapter, mangaupd.mangaUpdatesId AS mangaupdates_id,
+                       mangaupd.latestChapter AS mangaupdates_latest_chapter,
                        COALESCE({membership}, 0) AS quarantined
                 FROM grouped LEFT JOIN anilist ON grouped.series = anilist.series
+                LEFT JOIN mangaupd ON anilist.anilistId = mangaupd.anilistId
             )
         """
         status_where = "WHERE quarantined = ?" if quarantined is not None else ""

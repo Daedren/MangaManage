@@ -62,6 +62,15 @@ const ariaSort = (column: SortColumn) => sortBy.value !== column
 const sortIndicator = (column: SortColumn) => sortBy.value !== column
   ? '↕' : sortDirection.value === 'asc' ? '↑' : '↓';
 
+const updateStatusLabel = (status: string) => {
+  switch (status) {
+    case 'up_to_date': return 'Up to date';
+    case 'missing_chapters': return 'Missing chapters';
+    case 'unknown': return 'Unknown';
+    default: return '';
+  }
+};
+
 const toggleDetails = (series: string, id: number) => {
   if (expandedSeries.value.has(series)) {
     expandedSeries.value.delete(series);
@@ -120,6 +129,11 @@ onMounted(() => fetch(1));
         <template v-else>No series found.</template>
       </p>
 
+      <p v-if="seriesStore.series.length > 0" class="updates-note">
+        MangaUpdates chapters are cached; refresh them using the MangaUpdates check on the Tasks page.
+        Up to date means stored chapters or AniList last read have reached the cached chapter, not that there are no gaps.
+      </p>
+
       <div v-if="seriesStore.series.length > 0" class="table-wrapper">
         <table aria-label="Series">
           <thead>
@@ -130,6 +144,7 @@ onMounted(() => fetch(1));
               <th scope="col" class="col-date" :aria-sort="ariaSort('last_updated')">
                 <button class="sort-button" :disabled="seriesStore.isLoading" @click="changeSort('last_updated')">Last updated <span aria-hidden="true">{{ sortIndicator('last_updated') }}</span></button>
               </th>
+              <th scope="col" class="col-updates">MangaUpdates</th>
               <th scope="col" class="col-status" :aria-sort="ariaSort('quarantined')">
                 <button class="sort-button" :disabled="seriesStore.isLoading" @click="changeSort('quarantined')">Quarantined <span aria-hidden="true">{{ sortIndicator('quarantined') }}</span></button>
               </th>
@@ -145,6 +160,18 @@ onMounted(() => fetch(1));
                   </time>
                   <span v-else>—</span>
                 </td>
+                <td class="col-updates">
+                  <template v-if="series.mangaupdates_latest_chapter !== null">
+                    <span class="chapter-number">{{ series.mangaupdates_latest_chapter }}</span>
+                    <span class="update-status" :class="`update-status--${series.mangaupdates_status}`">
+                      {{ updateStatusLabel(series.mangaupdates_status) }}
+                    </span>
+                  </template>
+                  <span v-else>N/A</span>
+                  <span v-if="series.mangaupdates_status_reason" class="update-reason">
+                    {{ series.mangaupdates_status_reason }}
+                  </span>
+                </td>
                 <td class="col-status">
                   <button v-if="series.quarantined && series.anilistId !== null" class="details-toggle ghost"
                     :aria-expanded="expandedSeries.has(series.series)"
@@ -157,7 +184,7 @@ onMounted(() => fetch(1));
                 </td>
               </tr>
               <tr v-if="expandedSeries.has(series.series) && series.anilistId !== null" class="details-row">
-                <td :id="`quarantine-details-${index}`" colspan="3">
+                <td :id="`quarantine-details-${index}`" colspan="4">
                   <section :aria-label="`Quarantine reasons for ${series.series}`" :aria-busy="seriesStore.quarantineDetails[series.anilistId]?.loading">
                     <h2 class="details-heading">Quarantine reasons</h2>
                     <p class="details-note">Current gap check; viewing this does not change quarantine status.</p>
@@ -255,6 +282,7 @@ th {
 }
 
 .meta-count { margin-bottom: var(--space-3); }
+.updates-note { margin-bottom: var(--space-3); color: var(--color-ink-2); font-size: var(--text-xs); max-width: none; }
 
 .state-message {
   font-size: var(--text-sm);
@@ -265,12 +293,14 @@ th {
 .state-message--error { color: var(--color-error); }
 
 .table-wrapper {
+  overflow-x: auto;
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-md);
 }
 
 table {
   width: 100%;
+  min-width: 600px;
   table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--text-sm);
@@ -298,14 +328,20 @@ tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: var(--color-paper-3); }
 
 .col-date {
-  width: 32%;
+  width: 24%;
   font-family: var(--font-display);
   font-size: var(--text-xs);
   color: var(--color-ink-2);
   font-variant-numeric: tabular-nums;
 }
 
-.col-status { width: 23%; }
+.col-status { width: 17%; }
+.col-updates { width: 24%; }
+.chapter-number { font-family: var(--font-display); font-variant-numeric: tabular-nums; }
+.update-status { display: block; margin-top: var(--space-1); font-size: var(--text-xs); color: var(--color-ink-2); }
+.update-status--up_to_date { color: var(--color-success); }
+.update-status--missing_chapters { color: var(--color-warning); }
+.update-reason { display: block; margin-top: var(--space-1); font-size: var(--text-xs); color: var(--color-ink-2); }
 .sort-button {
   background: transparent;
   border: none;
@@ -340,8 +376,6 @@ button { white-space: nowrap; }
   .filter-bar { align-items: stretch; flex-direction: column; }
   .filter-field { flex-basis: auto; }
   .filter-field--status { flex: auto; }
-  .col-date { width: 31%; }
-  .col-status { width: 28%; }
   .sort-button { font-size: 10px; letter-spacing: 0.02em; overflow-wrap: normal; }
   .details-toggle { min-height: 44px; }
   .filter-bar button { align-self: flex-start; }

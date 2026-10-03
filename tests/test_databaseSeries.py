@@ -34,6 +34,9 @@ class TestDatabaseSeries(unittest.TestCase):
             "series": "Alpha", "anilistId": 42,
             "last_updated": "2026-02-01T10:00:00+00:00",
             "quarantined": False,
+            "latest_stored_chapter": 100.0,
+            "mangaupdates_id": None,
+            "mangaupdates_latest_chapter": None,
         }])
 
     def test_includes_unmapped_and_inactive_only_series(self):
@@ -140,3 +143,25 @@ class TestDatabaseSeries(unittest.TestCase):
         self.seed_quarantined_series()
         self.insert_chapter("Alpha", "2", "2026-03-01 00:00:00", active=0)
         self.assertEqual(self.database.getActiveChaptersForAnilist(42), [{"series": "Alpha", "chapter": "1"}])
+
+    def test_reads_cached_latest_and_highest_active_numeric_chapter(self):
+        self.insert_chapter("Alpha", "9", "2026-01-01 00:00:00")
+        self.insert_chapter("Alpha", "10.5", "2026-01-01 00:00:00")
+        self.insert_chapter("Alpha", "100", "2026-02-01 00:00:00", active=0)
+        with closing(sqlite3.connect(self.database_path)) as conn, conn:
+            conn.execute("INSERT INTO anilist (series, anilistId) VALUES ('Alpha', 42)")
+            conn.execute("INSERT INTO mangaupd (anilistId, mangaUpdatesId, latestChapter) VALUES (42, 123, 11)")
+        series, total = self.database.getAllDetailedSeries()
+        self.assertEqual(total, 1)
+        self.assertEqual(series[0]["latest_stored_chapter"], 10.5)
+        self.assertEqual(series[0]["mangaupdates_latest_chapter"], 11)
+        self.assertEqual(series[0]["last_updated"], "2026-02-01T00:00:00+00:00")
+
+    def test_inactive_only_series_has_no_stored_chapter_but_keeps_cache(self):
+        self.insert_chapter("Alpha", "100", "2026-01-01 00:00:00", active=0)
+        with closing(sqlite3.connect(self.database_path)) as conn, conn:
+            conn.execute("INSERT INTO anilist (series, anilistId) VALUES ('Alpha', 42)")
+            conn.execute("INSERT INTO mangaupd (anilistId, mangaUpdatesId, latestChapter) VALUES (42, 123, 11)")
+        series, _ = self.database.getAllDetailedSeries()
+        self.assertIsNone(series[0]["latest_stored_chapter"])
+        self.assertEqual(series[0]["mangaupdates_latest_chapter"], 11)
