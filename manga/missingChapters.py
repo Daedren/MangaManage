@@ -65,18 +65,7 @@ class CheckGapsInChapters:
             titles = trackerData.titles
             allChapters = list(map(lambda x: float(x["chapter"]), rowData))
 
-            """Check for gap in chapters vs the tracker"""
-            gap = self.__gapExistsInTrackerProgress(rowAnilistId, titles[0], realProgress, allChapters)
-            if gap:
-                if series_in_date:
-                    newQuarantineList.append(gap)
-                allQuarantineAnilist.append(rowAnilistId)
-                continue
-
-            """Check for gap in consecutive chapters"""
-            gaps = self.__checkConsecutive(
-                rowAnilistId, titles[0], allChapters
-            )
+            gaps = self.getGapsForChapters(rowAnilistId, titles[0], realProgress, allChapters)
             if gaps:
                 allQuarantineAnilist.append(rowAnilistId)
                 if series_in_date:
@@ -92,6 +81,35 @@ class CheckGapsInChapters:
 
         # limitedByDate = filter(lambda x: x[3] > datetime, newQuarantineList)
         return newQuarantineList
+
+    def getGapsForChapters(self, tracker_id, title, progress, chapters) -> List[MissingChapter]:
+        """Read-only rules shared with the quarantine workflow (tracker gap takes priority)."""
+        if not chapters:
+            return []
+        gap = self.__gapExistsInTrackerProgress(tracker_id, title, progress, chapters)
+        return [gap] if gap else self.__checkConsecutive(tracker_id, title, chapters)
+
+    def getQuarantineDetails(self, tracker_id: int):
+        """Check just one series without moving files or changing quarantine state."""
+        chapters = self.database.getActiveChaptersForAnilist(tracker_id)
+        if not chapters:
+            return {"status": "no_active_chapters", "reasons": []}
+        progress = self.anilist.getProgressFor(tracker_id)
+        if progress is None:
+            return {"status": "tracker_unavailable", "reasons": []}
+        gaps = self.getGapsForChapters(
+            tracker_id, chapters[0]["series"], progress,
+            [float(chapter["chapter"]) for chapter in chapters],
+        )
+        reasons = []
+        for gap in gaps:
+            if isinstance(gap, MissingTrackerChapter):
+                reasons.append({"type": "tracker_gap", "last_read": gap.tracker_chapter,
+                                "first_stored": gap.stored_chapter})
+            else:
+                reasons.append({"type": "consecutive_gap", "before": gap.first_chapter,
+                                "after": gap.second_chapter})
+        return {"status": "gaps_found" if reasons else "no_gaps", "reasons": reasons}
 
     def __checkQuarantines(self, newQuarantineList: list):
         "If a series isn't listed in the updated quarantine list. Remove it"

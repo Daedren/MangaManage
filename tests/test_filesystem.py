@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
 import io
+import tempfile
 import zipfile
 import unittest
 from manga.gateways.filesystem import FilesystemGateway
@@ -133,6 +134,24 @@ class TestFilesystemGateway(unittest.TestCase):
 
         self.assertFalse(self.source2.exists())
         return
+
+    def test_countSourceImages_directory(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            chapter = Path(temporary_directory)
+            chapter.joinpath("page.jpg").touch()
+            chapter.joinpath("metadata.txt").touch()
+            chapter.joinpath(".hidden.png").touch()
+
+            self.assertEqual(self.sut.count_source_images(chapter), 1)
+
+    def test_countSourceImages_cbz(self):
+        cbz = Path("/tmp/fstest/source/sourceOne/seriesCbz/chapterOne.cbz")
+        with zipfile.ZipFile(cbz, "w") as archive:
+            archive.writestr("page.jpg", b"image")
+            archive.writestr("metadata.txt", b"metadata")
+            archive.writestr(".hidden.png", b"image")
+
+        self.assertEqual(self.sut.count_source_images(cbz), 1)
 
     def test_deleteArchive_onechapterSeries_seriesDeleted(self):
         """test_deleteArchive_onechapterSeries_seriesDeleted"""

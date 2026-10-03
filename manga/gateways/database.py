@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import sqlite3
 from typing import List
 from contextlib import contextmanager
@@ -62,6 +62,69 @@ class DatabaseGateway:
             cur.execute(query, filter_params + [limit, offset])
             rows = cur.fetchall()
             return rows, total
+
+    def getAllDetailedSeries(
+        self, title: str = None, limit: int = 50, offset: int = 0,
+        quarantined_ids=(), quarantined=None, sort_by="last_updated", sort_direction="desc",
+    ):
+        limit = min(max(1, limit), 100)
+        offset = max(0, offset)
+        columns = {"series": "series COLLATE NOCASE", "last_updated": "last_updated", "quarantined": "quarantined"}
+        if sort_by not in columns or sort_direction not in ("asc", "desc"):
+            raise ValueError("Invalid series sort")
+        ids = sorted(set(quarantined_ids))
+        membership = f"anilist.anilistId IN ({','.join('?' for _ in ids)})" if ids else "0"
+        where = "WHERE series LIKE ?" if title else ""
+        params = ([f"%{title}%"] if title else []) + ids
+        cte = f"""
+            WITH grouped AS (
+                SELECT series, MAX(datetime(creation_date)) AS last_updated
+                FROM manga {where} GROUP BY series
+            ), detailed AS (
+                SELECT grouped.series, anilist.anilistId, grouped.last_updated,
+                       COALESCE({membership}, 0) AS quarantined
+                FROM grouped LEFT JOIN anilist ON grouped.series = anilist.series
+            )
+        """
+        status_where = "WHERE quarantined = ?" if quarantined is not None else ""
+        if quarantined is not None:
+            params.append(int(quarantined))
+        # Unknown dates always come last; series provides stable pagination for ties.
+        null_order = "last_updated IS NULL ASC," if sort_by == "last_updated" else ""
+        order = f"{null_order} {columns[sort_by]} {sort_direction.upper()}, series COLLATE NOCASE ASC, series ASC"
+        with self.__conn() as (_, cur):
+            cur.execute(
+                f"{cte} SELECT COUNT(*) FROM detailed {status_where}",
+                params,
+            )
+            total = cur.fetchone()[0]
+            cur.execute(
+                f"""
+                {cte}
+                SELECT * FROM detailed {status_where}
+                ORDER BY {order}
+                LIMIT ? OFFSET ?
+                """,
+                params + [limit, offset],
+            )
+            series = [dict(row) for row in cur.fetchall()]
+            for item in series:
+                item["quarantined"] = bool(item["quarantined"])
+                if item["last_updated"] is not None:
+                    item["last_updated"] = datetime.fromisoformat(
+                        item["last_updated"]
+                    ).replace(tzinfo=timezone.utc).isoformat()
+            return series, total
+
+    def getActiveChaptersForAnilist(self, anilist_id: int):
+        with self.__conn() as (_, cur):
+            cur.execute(
+                """SELECT manga.series, manga.chapter FROM manga
+                   INNER JOIN anilist ON manga.series = anilist.series
+                   WHERE anilist.anilistId = ? AND manga.active = 1""",
+                (anilist_id,),
+            )
+            return [dict(row) for row in cur.fetchall()]
 
     def getSeriesForAnilist(self, anilistId):
         with self.__conn() as (_, cur):

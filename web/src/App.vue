@@ -8,6 +8,7 @@ import { RouterLink, RouterView } from 'vue-router';
       <span class="wordmark" aria-label="MangaManage">MM</span>
       <ul class="nav-links" role="list">
         <li><RouterLink to="/" exact-active-class="is-active">Chapters</RouterLink></li>
+        <li><RouterLink to="/series" active-class="is-active">Series</RouterLink></li>
         <li><RouterLink to="/tasks" active-class="is-active">Tasks</RouterLink></li>
         <li><RouterLink to="/logs" active-class="is-active">Logs</RouterLink></li>
       </ul>
@@ -63,6 +64,7 @@ import { RouterLink, RouterView } from 'vue-router';
 }
 
 .nav-links a {
+  white-space: nowrap;
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
@@ -128,6 +130,11 @@ import { RouterLink, RouterView } from 'vue-router';
 
 /* ─── Mobile ────────────────────────────────────────────────────── */
 @media (max-width: 480px) {
+  .site-nav {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
   .nav-links {
     gap: var(--space-4);
   }

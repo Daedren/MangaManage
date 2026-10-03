@@ -83,6 +83,43 @@ class TestMainRunner(unittest.TestCase):
         )
         filesystem.compress_chapter.assert_called_once()
 
+    def test_execute_discardsOnePageMangaDexChapter_andContinues(self):
+        with tempfile.TemporaryDirectory() as source_folder:
+            mangaDex_chapter = Path(source_folder, "Tachiyomi MangaDex", "series", "1")
+            other_chapter = Path(source_folder, "Other source", "series", "2")
+            mangaDex_chapter.mkdir(parents=True)
+            other_chapter.mkdir(parents=True)
+
+            filesystem = MagicMock()
+            filesystem.count_source_images.side_effect = lambda path: (
+                1 if path == mangaDex_chapter else 2
+            )
+            push = MagicMock()
+            database = MagicMock()
+            database.getAnilistIDForSeries.return_value = 1
+            database.doesExistChapterAndAnilist.return_value = False
+            calc_chapter_name = MagicMock()
+            calc_chapter_name.execute.return_value = "2"
+            delete_read_chapters = MagicMock()
+            delete_read_chapters.execute.return_value = []
+            sut = self.createSut(
+                sourceFolder=source_folder,
+                filesystem=filesystem,
+                push=push,
+                database=database,
+                calcChapterName=calc_chapter_name,
+                deleteReadChapters=delete_read_chapters,
+            )
+
+            sut.execute()
+
+        filesystem.deleteSourceChapter.assert_any_call(location=str(mangaDex_chapter))
+        push.sendPush.assert_any_call(
+            "Discarded one-page MangaDex chapter: series 1"
+        )
+        filesystem.compress_chapter.assert_called_once()
+        database.insertChapter.assert_called_once()
+
     def chapterStub(
         self,
         anilistId: int = 1,

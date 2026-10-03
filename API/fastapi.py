@@ -1,10 +1,12 @@
 import configparser
 import datetime
-from fastapi import FastAPI, HTTPException
+from typing import Literal
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from appContainer import ApplicationContainer
 from cross.last_run_logs import capture_last_run_logs, get_last_run_log_path
+from manga.missingChapters import CheckGapsInChapters
 
 # Load configuration
 config = configparser.ConfigParser(allow_no_value=True)
@@ -71,6 +73,40 @@ async def get_all_chapters(active: int = 1, title: str = None, limit: int = 50, 
             active=active, title=title, limit=limit, offset=offset
         )
         return {"chapters": chapters, "total": total, "limit": limit, "offset": offset}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/database/series")
+async def get_all_series(
+    title: str = None,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    quarantined: bool | None = None,
+    sort_by: Literal["series", "last_updated", "quarantined"] = "last_updated",
+    sort_direction: Literal["asc", "desc"] = "desc",
+):
+    """List series by their newest chapter creation date, including inactive chapters."""
+    try:
+        series, total = database_gateway.getAllDetailedSeries(
+            title=title.strip() if title else None, limit=limit, offset=offset,
+            quarantined_ids=filesystem_gateway.getQuarantinedSeries(),
+            quarantined=quarantined, sort_by=sort_by, sort_direction=sort_direction,
+        )
+        return {"series": series, "total": total, "limit": limit, "offset": offset}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/database/series/{anilist_id}/quarantine-details")
+def get_series_quarantine_details(anilist_id: int):
+    """Explain current gaps on demand; never run the mutating quarantine workflow."""
+    try:
+        quarantined = anilist_id in filesystem_gateway.getQuarantinedSeries()
+        if not quarantined:
+            return {"quarantined": False, "status": "not_quarantined", "reasons": []}
+        checker = CheckGapsInChapters(database_gateway, filesystem_gateway, anilist_gateway)
+        return {"quarantined": True, **checker.getQuarantineDetails(anilist_id)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
