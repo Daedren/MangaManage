@@ -11,6 +11,7 @@ class TrackerSeries:
         chapters: Optional[int],
         country_of_origin: str,
         progress: int,
+        list_status: Optional[str] = None,
     ):
         self.tracker_id = tracker_id
         self.titles = titles
@@ -18,3 +19,4 @@ class TrackerSeries:
         self.chapters = chapters
         self.country_of_origin = country_of_origin
         self.progress = progress
+        self.list_status = list_status

@@ -1,27 +1,17 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useTasksStore } from '../stores/tasks';
-import { useLogsStore } from '../stores/logs';
+import LogViewer from '../components/LogViewer.vue';
 
 const tasksStore = useTasksStore();
-const logsStore  = useLogsStore();
 const series     = ref('');
 const anilistId  = ref('');
-
-const runAndRefreshLogs = async (action: () => Promise<unknown>) => {
-  try {
-    await action();
-    await logsStore.fetchLogs();
-  } catch {
-    await logsStore.fetchLogs();
-  }
-};
+const busy = computed(() => tasksStore.isRunning || tasksStore.isRestoring || !!tasksStore.statusError);
+onMounted(() => { void tasksStore.restore(); });
 
 const updateAnilistId = async () => {
   if (!series.value.trim() || !anilistId.value.trim()) return;
-  await runAndRefreshLogs(() =>
-    tasksStore.updateAnilistId(series.value.trim(), anilistId.value.trim()),
-  );
+  await tasksStore.updateAnilistId(series.value.trim(), anilistId.value.trim());
 };
 </script>
 
@@ -39,6 +29,8 @@ const updateAnilistId = async () => {
 
     <!-- Status messages -->
     <div class="status-strip" role="status" aria-live="polite" aria-atomic="true">
+      <p v-if="tasksStore.isRestoring" class="status">Checking latest task…</p>
+      <p v-if="tasksStore.statusError" class="status status--error">{{ tasksStore.statusError }}</p>
       <p v-if="tasksStore.error"       class="status status--error">{{ tasksStore.error }}</p>
       <p v-else-if="tasksStore.lastMessage" class="status status--success">{{ tasksStore.lastMessage }}</p>
       <p v-if="tasksStore.isRunning"   class="status status--running">
@@ -56,7 +48,7 @@ const updateAnilistId = async () => {
         </header>
         <p>Run the default import / archive / delete / quarantine workflow.</p>
         <footer class="task-card__footer">
-          <button :disabled="tasksStore.isRunning" @click="runAndRefreshLogs(tasksStore.processSource)">
+          <button :disabled="busy" @click="tasksStore.processSource">
             Process source
           </button>
         </footer>
@@ -68,10 +60,10 @@ const updateAnilistId = async () => {
         </header>
         <p>Find archive files missing database rows, or insert rows for them.</p>
         <footer class="task-card__footer task-card__footer--row">
-          <button :disabled="tasksStore.isRunning" class="ghost" @click="runAndRefreshLogs(() => tasksStore.checkMissingSql(false))">
+          <button :disabled="busy" class="ghost" @click="tasksStore.checkMissingSql(false)">
             Check only
           </button>
-          <button :disabled="tasksStore.isRunning" class="warning" @click="runAndRefreshLogs(() => tasksStore.checkMissingSql(true))">
+          <button :disabled="busy" class="warning" @click="tasksStore.checkMissingSql(true)">
             Check and fix
           </button>
         </footer>
@@ -83,7 +75,7 @@ const updateAnilistId = async () => {
         </header>
         <p>Check all series for tracker or consecutive chapter gaps, update quarantine state.</p>
         <footer class="task-card__footer">
-          <button :disabled="tasksStore.isRunning" @click="runAndRefreshLogs(tasksStore.checkMissingChapters)">
+          <button :disabled="busy" @click="tasksStore.checkMissingChapters">
             Check chapters
           </button>
         </footer>
@@ -95,7 +87,7 @@ const updateAnilistId = async () => {
         </header>
         <p>Update MangaUpdates IDs and check for releases newer than the archive.</p>
         <footer class="task-card__footer">
-          <button :disabled="tasksStore.isRunning" @click="runAndRefreshLogs(tasksStore.checkMangaUpdates)">
+          <button :disabled="busy" @click="tasksStore.checkMangaUpdates">
             Check updates
           </button>
         </footer>
@@ -111,7 +103,7 @@ const updateAnilistId = async () => {
             <span class="field-label">Series name</span>
             <input
               v-model="series"
-              :disabled="tasksStore.isRunning"
+              :disabled="busy"
               type="text"
               placeholder="e.g. Berserk"
               aria-label="Series name"
@@ -121,7 +113,7 @@ const updateAnilistId = async () => {
             <span class="field-label">AniList ID</span>
             <input
               v-model="anilistId"
-              :disabled="tasksStore.isRunning"
+              :disabled="busy"
               type="text"
               placeholder="e.g. 30002"
               aria-label="AniList ID"
@@ -130,7 +122,7 @@ const updateAnilistId = async () => {
         </div>
         <footer class="task-card__footer">
           <button
-            :disabled="tasksStore.isRunning || !series.trim() || !anilistId.trim()"
+            :disabled="busy || !series.trim() || !anilistId.trim()"
             @click="updateAnilistId"
           >
             Update ID
@@ -139,6 +131,10 @@ const updateAnilistId = async () => {
       </article>
 
     </section>
+    <section class="task-output" aria-label="Live task logs">
+      <h2>{{ tasksStore.runId ? `Output: ${tasksStore.activeTask}` : 'Latest output' }}</h2>
+      <LogViewer :run-id="tasksStore.runId || undefined" />
+    </section>
   </main>
 </template>
 
@@ -146,6 +142,9 @@ const updateAnilistId = async () => {
 .tasks-page {
   /* inherits max-width + padding from main.css */
 }
+
+.task-output { margin-top: var(--space-6); }
+.task-output h2 { margin-bottom: var(--space-3); font-size: var(--text-base); }
 
 /* ─── Page header ────────────────────────────────────────────────── */
 .page-header {

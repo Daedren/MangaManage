@@ -1,13 +1,18 @@
 import configparser
+import asyncio
+from contextlib import asynccontextmanager
 import datetime
 import http.client
 import logging
 from typing import Annotated, Literal
-from fastapi import Body, FastAPI, HTTPException, Path, Query
+from fastapi import Body, FastAPI, HTTPException, Path, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from appContainer import ApplicationContainer
-from cross.last_run_logs import capture_last_run_logs, get_last_run_log_path
+from cross.last_run_logs import CaptureBusy, capture_last_run_logs, get_last_run_log_path
+from API.task_runs import TaskRuns
+from API.log_stream import follow_logs, read_log
 from manga.missingChapters import CheckGapsInChapters
 from manga.gateways.utils.exceptions import AnilistRequestException, TokenRefreshException
 from manga.gateways.suwayomi import SuwayomiDownloadError
@@ -79,7 +84,16 @@ class MigrationExecuteRequest(MigrationPreviewRequest):
 
 
 # Create FastAPI app
-app = FastAPI()
+task_runs = TaskRuns(config)
+
+
+@asynccontextmanager
+async def lifespan(app):
+    yield
+    await asyncio.to_thread(task_runs.close)
+
+
+app = FastAPI(lifespan=lifespan)
 
 # Add CORS middleware
 app.add_middleware(
@@ -95,7 +109,7 @@ app.add_middleware(
 async def get_anilist_progress(media_id: int):
     """Get progress for a specific media ID from Anilist."""
     try:
-        progress = anilist_gateway.getProgressFor(media_id)
+        progress = await asyncio.to_thread(anilist_gateway.getProgressFor, media_id)
         if progress is None:
             raise HTTPException(status_code=404, detail="Media ID not found")
         return {"media_id": media_id, "progress": progress}
@@ -103,13 +117,20 @@ async def get_anilist_progress(media_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def get_all_read_progress() -> tuple[dict[int, int] | None, str | None]:
-    """Use the gateway's cached, general list query, never one request per series."""
+def get_all_read_progress() -> tuple[
+    dict[int, int] | None, dict[int, str | None] | None, str | None
+]:
+    """Load progress and AniList list status in one cached bulk lookup."""
     try:
         entries = anilist_gateway.getAllEntries(reading_only=False)
         if entries is not None:
-            return {media_id: entry.progress for media_id, entry in entries.items()}, None
-        return None, "AniList returned no read-progress response."
+            progress = {media_id: entry.progress for media_id, entry in entries.items()}
+            list_status = {
+                media_id: getattr(entry, "list_status", None)
+                for media_id, entry in entries.items()
+            }
+            return progress, list_status, None
+        return None, None, "AniList returned no read-progress response."
     except TokenRefreshException:
         reason = "AniList authentication needs renewal; refresh the token in settings.ini."
     except AnilistRequestException as error:
@@ -133,13 +154,13 @@ def get_all_read_progress() -> tuple[dict[int, int] | None, str | None]:
     except Exception as error:
         logging.getLogger(__name__).warning("Unable to retrieve AniList read progress", exc_info=True)
         reason = f"AniList read-progress lookup failed ({type(error).__name__}); check server logs."
-    return None, reason
+    return None, None, reason
 
 
 @app.get("/anilist/progress")
 def get_anilist_progress_list():
     """Get read progress across all AniList lists using one cached bulk lookup."""
-    progress, reason = get_all_read_progress()
+    progress, _, reason = get_all_read_progress()
     if progress is None:
         raise HTTPException(status_code=503, detail=reason)
     return {"progress": progress}
@@ -149,7 +170,7 @@ def get_anilist_progress_list():
 async def search_anilist(title: str):
     """Search for a media title in Anilist."""
     try:
-        results = anilist_gateway.searchMediaBy(title)
+        results = await asyncio.to_thread(anilist_gateway.searchMediaBy, title)
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -159,7 +180,8 @@ async def search_anilist(title: str):
 async def get_all_chapters(active: int = 1, title: str = None, limit: int = 50, offset: int = 0):
     """Get paginated chapters from the database."""
     try:
-        chapters, total = database_gateway.getAllDetailedChapters(
+        chapters, total = await asyncio.to_thread(
+            database_gateway.getAllDetailedChapters,
             active=active, title=title, limit=limit, offset=offset
         )
         return {"chapters": chapters, "total": total, "limit": limit, "offset": offset}
@@ -181,18 +203,21 @@ def get_all_series(
 ):
     """List series by their newest chapter creation date, including inactive chapters."""
     try:
-        filter_before_pagination = mangaupdates_status is not None
+        # AniList list status is only available from its bulk list lookup, so
+        # filter the complete matching result before slicing the requested page.
         series, total = database_gateway.getAllDetailedSeries(
             title=title.strip() if title else None,
-            limit=None if filter_before_pagination else limit,
-            offset=0 if filter_before_pagination else offset,
+            limit=None,
+            offset=0,
             quarantined_ids=filesystem_gateway.getQuarantinedSeries(),
             quarantined=quarantined, sort_by=sort_by, sort_direction=sort_direction,
         )
-        # Load a single bulk snapshot whenever this page has mapped series, both
-        # for the displayed last-read chapter and MangaUpdates status checks.
-        needs_progress = any(item.get("anilistId") is not None for item in series)
-        progress, progress_error = get_all_read_progress() if needs_progress else (None, None)
+        # Load one bulk snapshot whenever the matching result has mapped series,
+        # both for displayed last-read chapters and AniList list status checks.
+        needs_tracker_data = any(item.get("anilistId") is not None for item in series)
+        progress, list_status, progress_error = (
+            get_all_read_progress() if needs_tracker_data else (None, None, None)
+        )
         for item in series:
             latest = item.get("mangaupdates_latest_chapter")
             stored = item.get("latest_stored_chapter") or 0
@@ -224,13 +249,18 @@ def get_all_series(
                     reason = "Stored chapters are behind; this series is not on your AniList list."
             item["mangaupdates_status"] = status
             item["mangaupdates_status_reason"] = reason
-        if filter_before_pagination:
+        excluded_ids = {
+            media_id for media_id, status in (list_status or {}).items()
+            if status in ("COMPLETED", "DROPPED", "PAUSED")
+        }
+        series = [item for item in series if item.get("anilistId") not in excluded_ids]
+        if mangaupdates_status is not None:
             series = [
                 item for item in series
                 if item["mangaupdates_status"] == mangaupdates_status
             ]
-            total = len(series)
-            series = series[offset:offset + limit]
+        total = len(series)
+        series = series[offset:offset + limit]
         # One cached, paginated library snapshot; no per-row Suwayomi requests.
         needs_sources = any(item.get("anilistId") is not None for item in series)
         sources, source_error = suwayomi_gateway.getLibrarySources() if needs_sources else ({}, None)
@@ -342,93 +372,115 @@ def execute_series_migration(
 
 
 @app.get("/logs")
-async def get_logs():
-    """Get logs from the last CLI or API run."""
+def get_logs(cursor: str | None = None, run_id: str | None = None):
+    """Read at most 64 KiB; a cursor reads subsequent output instead of the whole file."""
     try:
-        log_path = get_last_run_log_path(config)
-        if not log_path.exists():
-            return {"logs": "", "exists": False}
-        return {"logs": log_path.read_text(encoding="utf-8", errors="replace"), "exists": True}
+        return read_log(resolve_log_path(run_id), cursor)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/tasks/process-source")
-async def process_source():
-    """Run the default CLI processing task."""
+def resolve_log_path(run_id):
+    if run_id is None:
+        return get_last_run_log_path(config)
     try:
+        return task_runs.log_path(run_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task run not found or no longer retained.") from None
+
+
+@app.get("/logs/stream")
+async def stream_logs(request: Request, cursor: str | None = None, run_id: str | None = None):
+    path = await asyncio.to_thread(resolve_log_path, run_id)
+    status = (lambda: task_runs.get(run_id)) if run_id else None
+    return StreamingResponse(
+        follow_logs(request, path, request.headers.get("last-event-id") or cursor, status),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.get("/tasks/runs/latest")
+def latest_task_run():
+    return {"run": task_runs.latest()}
+
+
+@app.get("/tasks/runs/{run_id}")
+def get_task_run(run_id: str):
+    try:
+        return task_runs.get(run_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task run not found or no longer retained.") from None
+
+
+def start_task(label, action):
+    try:
+        return task_runs.start(label, action)
+    except CaptureBusy as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
+
+
+@app.post("/tasks/process-source", status_code=202)
+def process_source():
+    def action():
         anilist_gateway.clearCache()
-        with capture_last_run_logs(config, "API process source"):
-            application_container.mainRunner.execute(interactive=False)
+        application_container.mainRunner.execute(interactive=False)
         return {"message": "Source processing completed"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return start_task("Process source", action)
 
 
-@app.post("/tasks/check-missing-sql")
-async def check_missing_sql(fix: bool = False):
-    """Detect archived chapters that are missing from the database."""
-    try:
-        with capture_last_run_logs(config, "API check missing SQL"):
-            application_container.manga.checkMissingSQL.execute(fixAfter=fix)
+@app.post("/tasks/check-missing-sql", status_code=202)
+def check_missing_sql(fix: bool = False):
+    def action():
+        application_container.manga.checkMissingSQL.execute(fixAfter=fix)
         return {"message": "Missing SQL check completed", "fix": fix}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return start_task("Fix missing SQL" if fix else "Check missing SQL", action)
 
 
-@app.post("/tasks/check-missing-chapters")
-async def check_missing_chapters():
-    """Check all archived series for missing chapter gaps."""
-    try:
+@app.post("/tasks/check-missing-chapters", status_code=202)
+def check_missing_chapters():
+    def action():
         anilist_gateway.clearCache()
-        with capture_last_run_logs(config, "API check missing chapters"):
-            gaps = application_container.manga.checkGapsInChapters.getGapsFromChaptersSince(
-                datetime.datetime.utcfromtimestamp(0)
-            )
+        gaps = application_container.manga.checkGapsInChapters.getGapsFromChaptersSince(
+            datetime.datetime.utcfromtimestamp(0)
+        )
         return {
             "message": "Missing chapter check completed",
             "missing_chapters": [gap.reasonToPrint() for gap in gaps or []],
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return start_task("Check missing chapters", action)
 
 
-@app.post("/tasks/check-manga-updates")
-async def check_manga_updates():
-    """Run the MangaUpdates CLI check."""
-    try:
+@app.post("/tasks/check-manga-updates", status_code=202)
+def check_manga_updates():
+    def action():
         anilist_gateway.clearCache()
-        with capture_last_run_logs(config, "API check MangaUpdates"):
-            application_container.manga.checkForUpdates.updateLocalIds()
-            application_container.manga.checkForUpdates.checkForUpdates()
+        application_container.manga.checkForUpdates.updateLocalIds()
+        application_container.manga.checkForUpdates.checkForUpdates()
         return {"message": "MangaUpdates check completed"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return start_task("Check MangaUpdates", action)
 
 
-@app.post("/tasks/update-anilist-id")
-async def update_anilist_id(request: UpdateAnilistIdRequest):
-    """Manually update the AniList ID for a series."""
-    try:
+@app.post("/tasks/update-anilist-id", status_code=202)
+def update_anilist_id(request: UpdateAnilistIdRequest):
+    def action():
         anilist_gateway.clearCache()
-        with capture_last_run_logs(config, f"API update AniList ID for {request.series}"):
-            application_container.manga.updateTrackerIds.manualUpdateFor(
-                request.series, request.anilistId
-            )
+        application_container.manga.updateTrackerIds.manualUpdateFor(request.series, request.anilistId)
         return {
             "message": "AniList ID updated",
             "series": request.series,
             "anilistId": request.anilistId,
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return start_task("Update AniList ID", action)
 
 
 @app.get("/database/anilist-id")
 async def get_anilist_id_for_title(title: str):
     """Get the stored AniList ID for a title."""
     try:
-        anilist_id = database_gateway.getAnilistIDForSeries(title)
+        anilist_id = await asyncio.to_thread(database_gateway.getAnilistIDForSeries, title)
         if anilist_id is None:
             raise HTTPException(status_code=404, detail="Title not found")
         return {"title": title, "anilistId": anilist_id}
@@ -441,32 +493,41 @@ async def get_anilist_id_for_title(title: str):
 @app.post("/database/chapter")
 async def insert_chapter(series_name: str, chapter_number: str, archive_path: str, source_path: str):
     """Insert a new chapter into the database."""
+    await run_logged_action(
+        f"API insert chapter for {series_name}",
+        lambda: database_gateway.insertChapter(series_name, chapter_number, archive_path, source_path),
+    )
+    return {"message": "Chapter inserted successfully"}
+
+
+async def run_logged_action(label, action):
+    def execute():
+        with capture_last_run_logs(config, label):
+            return action()
     try:
-        with capture_last_run_logs(config, f"API insert chapter for {series_name}"):
-            database_gateway.insertChapter(series_name, chapter_number, archive_path, source_path)
-        return {"message": "Chapter inserted successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return await asyncio.to_thread(execute)
+    except CaptureBusy as error:
+        raise HTTPException(status_code=409, detail=str(error)) from None
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error)) from None
 
 @app.delete("/database/chapter")
 async def delete_chapter(database_id: int):
     """Delete a chapter archive and mark its database record inactive."""
-    try:
-        with capture_last_run_logs(config, f"API delete chapter {database_id}"):
-            chapter = database_gateway.getChapterDetailsById(database_id)
-            if chapter is not None:
-                filesystem_gateway.deleteArchive(chapter["anilistId"], chapter["chapter"])
-            database_gateway.deleteChapterById(database_id)
-        return {"message": "Chapter deleted successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    def action():
+        chapter = database_gateway.getChapterDetailsById(database_id)
+        if chapter is not None:
+            filesystem_gateway.deleteArchive(chapter["anilistId"], chapter["chapter"])
+        database_gateway.deleteChapterById(database_id)
+    await run_logged_action(f"API delete chapter {database_id}", action)
+    return {"message": "Chapter deleted successfully"}
 
 
 @app.get("/filesystem/quarantined")
 async def get_quarantined_series():
     """Get all quarantined series."""
     try:
-        quarantined_series = filesystem_gateway.getQuarantinedSeries()
+        quarantined_series = await asyncio.to_thread(filesystem_gateway.getQuarantinedSeries)
         return {"quarantined_series": quarantined_series}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -475,21 +536,20 @@ async def get_quarantined_series():
 @app.post("/filesystem/quarantine/{anilist_id}")
 async def quarantine_series(anilist_id: str):
     """Quarantine a series by its Anilist ID."""
-    try:
-        with capture_last_run_logs(config, f"API quarantine series {anilist_id}"):
-            filesystem_gateway.quarantineSeries(anilist_id)
-        return {"message": f"Series {anilist_id} quarantined successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    await run_logged_action(
+        f"API quarantine series {anilist_id}", lambda: filesystem_gateway.quarantineSeries(anilist_id),
+    )
+    return {"message": f"Series {anilist_id} quarantined successfully"}
 
 
 @app.get("/mangaupd/latest/{series_id}")
 async def get_latest_releases(series_id: int):
     """Get the latest chapter from MangaUpdates and cache it in the database."""
     try:
-        latest_chapter, manga_updates_url = mangaupd_gateway.getSeriesDetailsForId(series_id)
+        latest_chapter, manga_updates_url = await asyncio.to_thread(mangaupd_gateway.getSeriesDetailsForId, series_id)
         if latest_chapter is not None or manga_updates_url is not None:
-            database_gateway.updateMangaUpdtLatestChapter(
+            await asyncio.to_thread(
+                database_gateway.updateMangaUpdtLatestChapter,
                 series_id, latest_chapter, manga_updates_url
             )
         return {"series_id": series_id, "latest_chapter": latest_chapter}
@@ -500,9 +560,5 @@ async def get_latest_releases(series_id: int):
 @app.post("/pushover/send")
 async def send_push_notification(message: str):
     """Send a push notification using Pushover."""
-    try:
-        with capture_last_run_logs(config, "API send push notification"):
-            pushover_gateway.sendPush(message)
-        return {"message": "Push notification sent successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    await run_logged_action("API send push notification", lambda: pushover_gateway.sendPush(message))
+    return {"message": "Push notification sent successfully"}

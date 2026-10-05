@@ -162,6 +162,7 @@ class AnilistGateway(TrackerGatewayInterface):
   }
 
   fragment mediaListEntry on MediaList {
+    status
     progress
     media {
       id
@@ -211,6 +212,7 @@ class AnilistGateway(TrackerGatewayInterface):
                     series["media"]["chapters"],
                     series["media"]["countryOfOrigin"],
                     series["progress"],
+                    series["status"],
                 )
             )
 

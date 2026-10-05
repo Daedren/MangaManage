@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
+    "test": "node --test tests/*.test.mjs",
     "lint": "eslint . --fix",
     "format": "prettier --write src/"
   },
