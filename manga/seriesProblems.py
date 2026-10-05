@@ -118,10 +118,34 @@ class SeriesProblems:
 
     def checkSeries(self, series_id, checks=None):
         """Report findings and check completeness, sharing one input snapshot."""
+        selected = self._selectedChecks(checks)
+        return self._runChecks(series_id, selected, self._context(series_id, selected))
+
+    def checkSeriesFromSnapshot(self, series_id, chapters, mangaupdates, progress,
+                                progress_error=None, title=None, checks=None):
+        """Use the same rules with bulk-loaded inputs; no gateway requests per row."""
+        context = {"chapters": [float(chapter) for chapter in chapters],
+                   "title": title or str(series_id), "mangaupdates": mangaupdates,
+                   "progress": progress, "progress_error": progress_error}
+        return self._runChecks(series_id, self._selectedChecks(checks), context)
+
+    @staticmethod
+    def hasProblems(report):
+        """Unknown is not problem-free; proven findings still count with partial checks."""
+        if report["problems"]:
+            return True
+        if not report["checks"] or any(check["status"] != "checked" for check in report["checks"]):
+            return None
+        return False
+
+    @staticmethod
+    def _selectedChecks(checks):
         selected = list(dict.fromkeys(CHECK_TYPES if checks is None else checks))
         if any(check not in CHECK_TYPES for check in selected):
             raise ValueError("Unknown series problem check")
-        context = self._context(series_id, selected)
+        return selected
+
+    def _runChecks(self, series_id, selected, context):
         handlers = {"tracker_gap": self.checkTrackerGap,
                     "consecutive_gap": self.checkConsecutiveGaps,
                     "mangaupdates_lag": self.checkMangaUpdatesLag}

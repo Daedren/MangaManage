@@ -220,6 +220,7 @@ def get_all_series(
     ] | None = None,
     sort_by: Literal["series", "last_updated", "quarantined"] = "last_updated",
     sort_direction: Literal["asc", "desc"] = "desc",
+    has_problems: bool | None = None,
 ):
     """List series by their newest chapter creation date, including inactive chapters."""
     try:
@@ -254,6 +255,30 @@ def get_all_series(
                 item for item in series
                 if item["mangaupdates_status"] == mangaupdates_status
             ]
+        unknown_problem_count = 0
+        if has_problems is not None and series:
+            # One active-chapter query and the existing AniList/cache snapshot,
+            # not a per-series database or upstream request for the whole library.
+            chapters_by_series = {}
+            for chapter in database_gateway.getAllChapters():
+                chapters_by_series.setdefault(chapter["anilistId"], []).append(chapter["chapter"])
+            checker = series_problem_checker()
+            matching = []
+            for item in series:
+                series_id = item.get("anilistId")
+                if series_id is None:
+                    status = None
+                else:
+                    report = checker.checkSeriesFromSnapshot(
+                        series_id, chapters_by_series.get(series_id, []), item,
+                        progress, progress_error, title=item["series"],
+                    )
+                    status = checker.hasProblems(report)
+                if status is None:
+                    unknown_problem_count += 1
+                elif status == has_problems:
+                    matching.append(item)
+            series = matching
         total = len(series)
         series = series[offset:offset + limit]
         # One cached, paginated library snapshot; no per-row Suwayomi requests.
@@ -268,7 +293,10 @@ def get_all_series(
                     else "No matching AniList-linked manga with a source in the Suwayomi library."
                 )
             )
-        return {"series": series, "total": total, "limit": limit, "offset": offset}
+        response = {"series": series, "total": total, "limit": limit, "offset": offset}
+        if has_problems is not None:
+            response["unknown_problem_count"] = unknown_problem_count
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

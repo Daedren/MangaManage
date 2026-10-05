@@ -45,6 +45,29 @@ const run = (status = 'running', id = 'a'.repeat(32)) => ({
 });
 const settle = () => new Promise(setImmediate);
 
+test('series problem filters send true and false and retain the unclassified count', async (t) => {
+  const requested = [];
+  t.mock.method(axios, 'get', async (url, options) => {
+    assert.match(url, /\/database\/series$/);
+    requested.push(options.params);
+    return { data: { series: [], total: 0, limit: 50, offset: 0,
+      ...(options.params.has_problems === undefined ? {} : { unknown_problem_count: 3 }) } };
+  });
+  const store = useSeriesStore();
+  await store.fetchSeries({ hasProblems: true, title: 'Alpha', quarantined: false, offset: 50 });
+  assert.equal(requested[0].has_problems, true);
+  assert.equal(requested[0].title, 'Alpha');
+  assert.equal(requested[0].quarantined, false);
+  assert.equal(requested[0].offset, 50);
+  assert.equal(store.unknownProblemCount, 3);
+  await store.fetchSeries({ hasProblems: false });
+  assert.equal(requested[1].has_problems, false);
+  assert.equal(store.unknownProblemCount, 3);
+  await store.fetchSeries();
+  assert.equal(requested[2].has_problems, undefined);
+  assert.equal(store.unknownProblemCount, 0);
+});
+
 test('series problems check all or individually and merge only the checked types', async (t) => {
   const gap = { type: 'consecutive_gap', before: 5, after: 8 };
   const lag = { type: 'mangaupdates_lag', after: 8, through: 10 };

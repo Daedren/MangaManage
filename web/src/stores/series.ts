@@ -129,6 +129,7 @@ interface SeriesResponse {
     total: number;
     limit: number;
     offset: number;
+    unknown_problem_count?: number;
 }
 
 interface FetchOptions {
@@ -136,6 +137,7 @@ interface FetchOptions {
     limit?: number;
     offset?: number;
     quarantined?: boolean;
+    hasProblems?: boolean;
     mangaupdatesStatus?: MangaUpdatesStatus;
     sortBy?: SortColumn;
     sortDirection?: SortDirection;
@@ -144,6 +146,7 @@ interface FetchOptions {
 export const useSeriesStore = defineStore('series', () => {
     const series = ref<Series[]>([]);
     const total = ref(0);
+    const unknownProblemCount = ref(0);
     const isLoading = ref(false);
     const error = ref('');
     const quarantineDetails = ref<Record<number, DetailsState>>({});
@@ -279,6 +282,7 @@ export const useSeriesStore = defineStore('series', () => {
                     limit: options.limit ?? 50,
                     offset: options.offset ?? 0,
                     quarantined: options.quarantined,
+                    has_problems: options.hasProblems,
                     mangaupdates_status: options.mangaupdatesStatus,
                     sort_by: options.sortBy ?? 'last_updated',
                     sort_direction: options.sortDirection ?? 'desc',
@@ -291,6 +295,7 @@ export const useSeriesStore = defineStore('series', () => {
                 suwayomi_status_reason: item.suwayomi_status_reason ?? null,
             }));
             total.value = response.data.total;
+            unknownProblemCount.value = response.data.unknown_problem_count ?? 0;
         } catch (caughtError) {
             console.error('Error fetching series:', caughtError);
             error.value = 'Unable to fetch series. Please try again.';
@@ -307,7 +312,7 @@ export const useSeriesStore = defineStore('series', () => {
     };
 
     return {
-        series, total, isLoading, error, fetchSeries, quarantineDetails,
+        series, total, unknownProblemCount, isLoading, error, fetchSeries, quarantineDetails,
         fetchQuarantineDetails, refreshMangaUpdatesChapter, gapDownloads, downloadQuarantineGap,
         seriesProblems, fetchSeriesProblems, problemDownloads, downloadSeriesProblem,
         fetchMigrationContext, searchMigration, suggestMigration, previewMigration, migrateSeries,

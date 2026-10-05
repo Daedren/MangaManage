@@ -11,6 +11,8 @@ const titleFilter = ref('');
 const appliedTitle = ref('');
 const quarantineFilter = ref('all');
 const appliedQuarantine = ref('all');
+const problemsFilter = ref('all');
+const appliedProblems = ref('all');
 const mangaUpdatesStatusFilter = ref<'all' | MangaUpdatesStatus>('all');
 const appliedMangaUpdatesStatus = ref<'all' | MangaUpdatesStatus>('all');
 const sortBy = ref<SortColumn>('last_updated');
@@ -40,6 +42,7 @@ const fetch = (page: number) => {
   void seriesStore.fetchSeries({
     title: appliedTitle.value,
     quarantined: appliedQuarantine.value === 'all' ? undefined : appliedQuarantine.value === 'yes',
+    hasProblems: appliedProblems.value === 'all' ? undefined : appliedProblems.value === 'yes',
     mangaupdatesStatus: appliedMangaUpdatesStatus.value === 'all'
       ? undefined
       : appliedMangaUpdatesStatus.value,
@@ -62,6 +65,7 @@ const refreshMangaUpdates = async (seriesId: number) => {
     await seriesStore.fetchSeries({
       title: appliedTitle.value,
       quarantined: appliedQuarantine.value === 'all' ? undefined : appliedQuarantine.value === 'yes',
+      hasProblems: appliedProblems.value === 'all' ? undefined : appliedProblems.value === 'yes',
       mangaupdatesStatus: appliedMangaUpdatesStatus.value === 'all'
         ? undefined
         : appliedMangaUpdatesStatus.value,
@@ -92,6 +96,7 @@ const applyFilters = () => {
   if (seriesStore.isLoading) return;
   appliedTitle.value = titleFilter.value.trim();
   appliedQuarantine.value = quarantineFilter.value;
+  appliedProblems.value = problemsFilter.value;
   appliedMangaUpdatesStatus.value = mangaUpdatesStatusFilter.value;
   expandedSeries.value.clear();
   fetch(1);
@@ -158,6 +163,14 @@ onMounted(() => fetch(1));
         </select>
       </label>
       <label class="filter-field filter-field--status">
+        <span class="field-label">Problems</span>
+        <select v-model="problemsFilter" aria-label="Filter by series problems">
+          <option value="all">All series</option>
+          <option value="yes">With problems</option>
+          <option value="no">Without problems</option>
+        </select>
+      </label>
+      <label class="filter-field filter-field--status">
         <span class="field-label">MangaUpdates status</span>
         <select v-model="mangaUpdatesStatusFilter" aria-label="Filter by MangaUpdates status">
           <option value="all">All statuses</option>
@@ -186,6 +199,12 @@ onMounted(() => fetch(1));
       <p v-if="seriesStore.series.length > 0" class="updates-note">
         MangaUpdates chapters are cached; expand a series detail row to refresh its chapter, or use the MangaUpdates check on the Tasks page to refresh them all.
         Up to date means stored chapters or AniList last read have reached the cached chapter, not that there are no gaps.
+      </p>
+      <p v-if="appliedProblems !== 'all'" class="updates-note">
+        Problems include tracker gaps, consecutive gaps and MangaUpdates lag. Without problems includes only series where all checks completed successfully.
+      </p>
+      <p v-if="appliedProblems !== 'all' && seriesStore.unknownProblemCount > 0" class="updates-note" role="status">
+        {{ seriesStore.unknownProblemCount }} series could not be classified because checks were unavailable or failed. Select All series under Problems to inspect them.
       </p>
 
       <div v-if="seriesStore.series.length > 0" class="table-wrapper">
