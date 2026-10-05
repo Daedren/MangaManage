@@ -49,7 +49,7 @@ class MangaUpdatesGateway:
         results = response.get("results")
         if not isinstance(results, list):
             raise ValueError("MangaUpdates search response has no valid results list")
-        candidates = []
+        has_candidates = False
         normalized_names = {self._normalizeTitle(title) for title in names}
         for result in results:
             if (not isinstance(result, dict)
@@ -61,7 +61,7 @@ class MangaUpdatesGateway:
             series_id = record.get("series_id")
             if type(series_id) is not int or series_id <= 0:
                 raise ValueError("Invalid MangaUpdates series ID")
-            candidates.append(record)
+            has_candidates = True
             titles = [record.get("title"), result.get("hit_title")]
             if any(
                 isinstance(title, str)
@@ -70,12 +70,9 @@ class MangaUpdatesGateway:
             ):
                 self.logger.debug("Matched %s to MangaUpdates ID %s", name, series_id)
                 return series_id
-        if not candidates:
-            return None
-        record = candidates[0]
-        self.logger.warning("No exact MangaUpdates title match for %s; using %s (%s)",
-                            name, record.get("title"), record["series_id"])
-        return record["series_id"]
+        if has_candidates:
+            self.logger.warning("No exact MangaUpdates title match for %s", name)
+        return None
 
     def getLatestChapterForId(self, series_id: int) -> Optional[int]:
         latest_chapter, _ = self.getSeriesDetailsForId(series_id)
