@@ -14,12 +14,14 @@ interface Series {
     anilist_last_read: number | null;
     mangaupdates_status: 'up_to_date' | 'missing_chapters' | 'unavailable' | 'unknown';
     mangaupdates_status_reason: string | null;
+    suwayomi_sources: { manga_id: number; name: string; url: string }[];
+    suwayomi_status_reason: string | null;
 }
 
 export type MangaUpdatesStatus = Series['mangaupdates_status'];
 export type SortColumn = 'series' | 'last_updated' | 'quarantined';
 export type SortDirection = 'asc' | 'desc';
-type QuarantineReason =
+export type QuarantineReason =
     | { type: 'tracker_gap'; last_read: number; first_stored: number }
     | { type: 'consecutive_gap'; before: number; after: number };
 interface QuarantineDetails {
@@ -32,6 +34,23 @@ interface DetailsState {
     error: string;
     data?: QuarantineDetails;
 }
+
+interface GapDownloadResult {
+    status: 'queued' | 'already_available' | 'no_matches' | 'no_source';
+    queued_chapters: number[];
+    already_downloaded: number[];
+    already_queued: number[];
+    warnings: string[];
+}
+interface GapDownloadState {
+    loading: boolean;
+    error: string;
+    result?: GapDownloadResult;
+}
+
+export const gapDownloadKey = (id: number, reason: QuarantineReason) => reason.type === 'tracker_gap'
+    ? `${id}:tracker:${reason.last_read}:${reason.first_stored}`
+    : `${id}:consecutive:${reason.before}:${reason.after}`;
 
 interface SeriesResponse {
     series: Series[];
@@ -56,10 +75,11 @@ export const useSeriesStore = defineStore('series', () => {
     const isLoading = ref(false);
     const error = ref('');
     const quarantineDetails = ref<Record<number, DetailsState>>({});
+    const gapDownloads = ref<Record<string, GapDownloadState>>({});
 
-    const fetchQuarantineDetails = async (id: number) => {
+    const fetchQuarantineDetails = async (id: number, force = false) => {
         const existing = quarantineDetails.value[id];
-        if (existing?.loading || existing?.data) return;
+        if (existing?.loading || (existing?.data && !force)) return;
         quarantineDetails.value[id] = { loading: true, error: '' };
         try {
             const response = await axios.get<QuarantineDetails>(
@@ -71,6 +91,27 @@ export const useSeriesStore = defineStore('series', () => {
             quarantineDetails.value[id] = {
                 loading: false, error: 'Unable to load quarantine reasons. Please try again.',
             };
+        }
+    };
+
+    const downloadQuarantineGap = async (id: number, reason: QuarantineReason) => {
+        const key = gapDownloadKey(id, reason);
+        if (gapDownloads.value[key]?.loading) return;
+        gapDownloads.value[key] = { loading: true, error: '' };
+        try {
+            const response = await axios.post<GapDownloadResult>(
+                `${config.apiBaseUrl}/database/series/${id}/quarantine-gap/download`, reason,
+            );
+            gapDownloads.value[key] = { loading: false, error: '', result: response.data };
+        } catch (caughtError) {
+            const detail = axios.isAxiosError(caughtError) ? caughtError.response?.data?.detail : undefined;
+            gapDownloads.value[key] = {
+                loading: false,
+                error: typeof detail === 'string' ? detail : 'Unable to queue missing chapters. Please try again.',
+            };
+            if (axios.isAxiosError(caughtError) && caughtError.response?.status === 409) {
+                await fetchQuarantineDetails(id, true);
+            }
         }
     };
 
@@ -90,7 +131,12 @@ export const useSeriesStore = defineStore('series', () => {
                     sort_direction: options.sortDirection ?? 'desc',
                 },
             });
-            series.value = response.data.series;
+            series.value = response.data.series.map((item) => ({
+                ...item,
+                // Keep the UI usable while an older backend is awaiting restart.
+                suwayomi_sources: item.suwayomi_sources ?? [],
+                suwayomi_status_reason: item.suwayomi_status_reason ?? null,
+            }));
             total.value = response.data.total;
         } catch (caughtError) {
             console.error('Error fetching series:', caughtError);
@@ -109,6 +155,6 @@ export const useSeriesStore = defineStore('series', () => {
 
     return {
         series, total, isLoading, error, fetchSeries, quarantineDetails,
-        fetchQuarantineDetails, refreshMangaUpdatesChapter,
+        fetchQuarantineDetails, refreshMangaUpdatesChapter, gapDownloads, downloadQuarantineGap,
     };
 });

@@ -13,7 +13,8 @@ class ApplicationContainer():
                                     self.gateways.database,
                                     self.gateways.tracker,
                                     self.gateways.filesystem,
-                                    self.gateways.mangaUpdates)
+                                    self.gateways.mangaUpdates,
+                                    self.gateways.suwayomi)
         self.mainRunner = MainRunner(
             self.config["manga"]["sourcefolder"],
             self.config["manga"]["archivefolder"],

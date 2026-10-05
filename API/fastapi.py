@@ -2,14 +2,15 @@ import configparser
 import datetime
 import http.client
 import logging
-from typing import Literal
-from fastapi import FastAPI, HTTPException, Query
+from typing import Annotated, Literal
+from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from appContainer import ApplicationContainer
 from cross.last_run_logs import capture_last_run_logs, get_last_run_log_path
 from manga.missingChapters import CheckGapsInChapters
 from manga.gateways.utils.exceptions import AnilistRequestException, TokenRefreshException
+from manga.gateways.suwayomi import SuwayomiDownloadError
 
 # Load configuration
 config = configparser.ConfigParser(allow_no_value=True)
@@ -26,12 +27,28 @@ anilist_gateway = application_container.gateways.tracker
 database_gateway = application_container.gateways.database
 filesystem_gateway = application_container.gateways.filesystem
 mangaupd_gateway = application_container.gateways.mangaUpdates
+suwayomi_gateway = application_container.gateways.suwayomi
 pushover_gateway = application_container.gateways.push
 
 
 class UpdateAnilistIdRequest(BaseModel):
     series: str
     anilistId: str
+
+
+class TrackerGapRequest(BaseModel):
+    type: Literal["tracker_gap"]
+    last_read: float = Field(ge=0, allow_inf_nan=False)
+    first_stored: float = Field(gt=0, allow_inf_nan=False)
+
+
+class ConsecutiveGapRequest(BaseModel):
+    type: Literal["consecutive_gap"]
+    before: float = Field(ge=0, allow_inf_nan=False)
+    after: float = Field(gt=0, allow_inf_nan=False)
+
+
+GapDownloadRequest = Annotated[TrackerGapRequest | ConsecutiveGapRequest, Body(discriminator="type")]
 
 # Create FastAPI app
 app = FastAPI()
@@ -186,6 +203,18 @@ def get_all_series(
             ]
             total = len(series)
             series = series[offset:offset + limit]
+        # One cached, paginated library snapshot; no per-row Suwayomi requests.
+        needs_sources = any(item.get("anilistId") is not None for item in series)
+        sources, source_error = suwayomi_gateway.getLibrarySources() if needs_sources else ({}, None)
+        for item in series:
+            item["suwayomi_sources"] = sources.get(item.get("anilistId"), [])
+            item["suwayomi_status_reason"] = (
+                "No AniList ID assigned to match Suwayomi tracking records."
+                if item.get("anilistId") is None else source_error or (
+                    None if item["suwayomi_sources"]
+                    else "No matching AniList-linked manga with a source in the Suwayomi library."
+                )
+            )
         return {"series": series, "total": total, "limit": limit, "offset": offset}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -202,6 +231,33 @@ def get_series_quarantine_details(anilist_id: int):
         return {"quarantined": True, **checker.getQuarantineDetails(anilist_id)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/database/series/{anilist_id}/quarantine-gap/download")
+def download_series_quarantine_gap(anilist_id: int, request: GapDownloadRequest):
+    """Revalidate one current gap, then queue available chapters in Suwayomi."""
+    try:
+        if anilist_id not in filesystem_gateway.getQuarantinedSeries():
+            raise HTTPException(status_code=409, detail="This series is no longer quarantined. Refresh its details.")
+        anilist_gateway.clearCache()
+        checker = CheckGapsInChapters(database_gateway, filesystem_gateway, anilist_gateway)
+        details = checker.getQuarantineDetails(anilist_id)
+        if details["status"] == "tracker_unavailable":
+            raise HTTPException(status_code=503, detail="AniList progress is unavailable. Try again later.")
+        if request.model_dump() not in details["reasons"]:
+            raise HTTPException(status_code=409, detail="This gap has changed or is no longer present. Refresh its details.")
+        if isinstance(request, TrackerGapRequest):
+            lower, upper = request.last_read, request.first_stored
+        else:
+            lower, upper = request.before, request.after
+        return suwayomi_gateway.queueGapDownloads(anilist_id, lower, upper)
+    except HTTPException:
+        raise
+    except SuwayomiDownloadError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from None
+    except Exception:
+        logging.getLogger(__name__).warning("Unable to queue downloads for a quarantine gap")
+        raise HTTPException(status_code=500, detail="Unable to check this gap. Try again or check server logs.") from None
 
 
 @app.get("/logs")

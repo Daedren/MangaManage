@@ -2,6 +2,7 @@ from typing import Optional
 from cross.decorators import Logger
 from manga.gateways.database import DatabaseGateway
 from manga.gateways.anilist import AnilistGateway
+from manga.gateways.suwayomi import SuwayomiGateway
 from models.tracker import TrackerSeries
 from .utils.pylev import levenschtein
 
@@ -10,9 +11,11 @@ from .utils.pylev import levenschtein
 class UpdateTrackerIds:
     """Updates local DB with tracker's IDs"""
     
-    def __init__(self, database: DatabaseGateway, anilist: AnilistGateway) -> None:
+    def __init__(self, database: DatabaseGateway, anilist: AnilistGateway,
+                 suwayomi: Optional[SuwayomiGateway] = None) -> None:
         self.anilist = anilist
         self.database = database
+        self.suwayomi = suwayomi
 
     class FoundEntry:
         "Model to hold find results"
@@ -51,6 +54,12 @@ class UpdateTrackerIds:
 
     def updateFor(self, series, interactive=False) -> Optional[str]:
         self.logger.info("Updating for " + series)
+        if self.suwayomi is not None:
+            anilist_id = self.suwayomi.getAnilistIdForSeries(series)
+            if anilist_id is not None:
+                self.logger.info(f"Found AniList ID {anilist_id} in Suwayomi for '{series}'")
+                self.database.insertTracking(series, anilist_id)
+                return anilist_id
         entries = self.anilist.getAllEntries()
         result = self.__findTrackerForSeries(entries.values(), series, interactive=interactive)
 

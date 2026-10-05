@@ -2,6 +2,7 @@ from manga.gateways.filesystem import FilesystemInterface
 from manga.gateways.anilist import AnilistGateway
 from manga.gateways.mangaupd import MangaUpdatesGateway
 from manga.gateways.database import DatabaseGateway
+from manga.gateways.suwayomi import SuwayomiGateway
 from manga.mangagetchapter import CalculateChapterName
 from manga.updateAnilistIds import UpdateTrackerIds
 from manga.missingChapters import CheckGapsInChapters
@@ -20,6 +21,7 @@ class MangaContainer:
         tracker: AnilistGateway,
         filesystem: FilesystemInterface,
         mangaUpdates: MangaUpdatesGateway,
+        suwayomi: SuwayomiGateway = None,
     ) -> None:
         self.config = config
         self.database = database
@@ -39,7 +41,7 @@ class MangaContainer:
         elif parser == "ElementTree":
             self.createMetadata = CreateMetadata(filesystem=self.filesystem)
 
-        self.updateTrackerIds = UpdateTrackerIds(self.database, self.tracker)
+        self.updateTrackerIds = UpdateTrackerIds(self.database, self.tracker, suwayomi)
 
         self.calculateChapterName = CalculateChapterName(self.tracker)
 

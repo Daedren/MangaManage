@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useSeriesStore } from '../stores/series';
+import { gapDownloadKey, useSeriesStore } from '../stores/series';
+import QuarantineGapAction from '../components/QuarantineGapAction.vue';
 import type { MangaUpdatesStatus, SortColumn, SortDirection } from '../stores/series';
 
 const seriesStore = useSeriesStore();
@@ -191,6 +192,7 @@ onMounted(() => fetch(1));
               <th scope="col" :aria-sort="ariaSort('series')">
                 <button class="sort-button" :disabled="seriesStore.isLoading" @click="changeSort('series')">Series <span aria-hidden="true">{{ sortIndicator('series') }}</span></button>
               </th>
+              <th scope="col" class="col-source">Suwayomi source</th>
               <th scope="col" class="col-date" :aria-sort="ariaSort('last_updated')">
                 <button class="sort-button" :disabled="seriesStore.isLoading" @click="changeSort('last_updated')">Last updated <span aria-hidden="true">{{ sortIndicator('last_updated') }}</span></button>
               </th>
@@ -206,6 +208,20 @@ onMounted(() => fetch(1));
             <template v-for="(series, index) in seriesStore.series" :key="series.series">
               <tr>
                 <td class="col-series">{{ series.series }}</td>
+                <td class="col-source">
+                  <ul v-if="series.suwayomi_sources.length" class="source-links">
+                    <li v-for="source in series.suwayomi_sources" :key="source.manga_id">
+                      <a :href="source.url" target="_blank" rel="noopener noreferrer"
+                        :aria-label="`Open ${series.series} on Suwayomi (${source.name})`"
+                        :title="series.suwayomi_status_reason || undefined">{{ source.name }}</a>
+                    </li>
+                  </ul>
+                  <span v-else :title="series.suwayomi_status_reason || undefined"
+                    :aria-label="series.suwayomi_status_reason || 'No Suwayomi source'">—</span>
+                  <span v-if="series.suwayomi_sources.length && series.suwayomi_status_reason" class="update-reason">
+                    {{ series.suwayomi_status_reason }}
+                  </span>
+                </td>
                 <td class="col-date">
                   <time v-if="series.last_updated" :datetime="series.last_updated">
                     {{ formatDate(series.last_updated) }}
@@ -266,10 +282,10 @@ onMounted(() => fetch(1));
                 </td>
               </tr>
               <tr v-if="expandedSeries.has(series.series) && series.anilistId !== null" class="details-row">
-                <td :id="`quarantine-details-${index}`" colspan="6">
+                <td :id="`quarantine-details-${index}`" colspan="7">
                   <section :aria-label="`Quarantine reasons for ${series.series}`" :aria-busy="seriesStore.quarantineDetails[series.anilistId]?.loading">
                     <h2 class="details-heading">Quarantine reasons</h2>
-                    <p class="details-note">Current gap check; viewing this does not change quarantine status.</p>
+                    <p class="details-note">Current gap check; viewing this does not change quarantine status. Downloads are queued in Suwayomi, one copy per chapter across linked sources. Quarantine remains until chapters are imported and gaps are checked again.</p>
                     <p v-if="seriesStore.quarantineDetails[series.anilistId]?.loading" role="status">Checking chapter gaps…</p>
                     <template v-else-if="seriesStore.quarantineDetails[series.anilistId]?.error">
                       <p role="alert">{{ seriesStore.quarantineDetails[series.anilistId]?.error }}</p>
@@ -277,9 +293,8 @@ onMounted(() => fetch(1));
                     </template>
                     <template v-else>
                       <ul v-if="seriesStore.quarantineDetails[series.anilistId]?.data?.reasons.length" class="reasons-list">
-                        <li v-for="(reason, reasonIndex) in seriesStore.quarantineDetails[series.anilistId]?.data?.reasons" :key="reasonIndex">
-                          <template v-if="reason.type === 'tracker_gap'">Last read chapter {{ reason.last_read }}; first stored chapter is {{ reason.first_stored }}.</template>
-                          <template v-else>Gap between stored chapters {{ reason.before }} and {{ reason.after }}.</template>
+                        <li v-for="reason in seriesStore.quarantineDetails[series.anilistId]?.data?.reasons" :key="gapDownloadKey(series.anilistId, reason)">
+                          <QuarantineGapAction :anilist-id="series.anilistId" :series="series.series" :reason="reason" />
                         </li>
                       </ul>
                       <p v-else>{{ detailsMessage(seriesStore.quarantineDetails[series.anilistId]?.data?.status) }}</p>
@@ -382,7 +397,7 @@ th {
 
 table {
   width: 100%;
-  min-width: 820px;
+  min-width: 1000px;
   table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--text-sm);
@@ -410,17 +425,22 @@ tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: var(--color-paper-3); }
 
 .col-date {
-  width: 20%;
+  width: 17%;
   font-family: var(--font-display);
   font-size: var(--text-xs);
   color: var(--color-ink-2);
   font-variant-numeric: tabular-nums;
 }
 
-.col-latest-chapter { width: 12%; }
-.col-anilist-progress { width: 12%; }
-.col-status { width: 17%; }
-.col-updates { width: 22%; }
+.col-source { width: 14%; }
+.source-links { margin: 0; padding: 0; list-style: none; }
+.source-links li + li { margin-top: var(--space-2); }
+.source-links a { text-underline-offset: 2px; }
+.source-links a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.col-latest-chapter { width: 10%; }
+.col-anilist-progress { width: 10%; }
+.col-status { width: 12%; }
+.col-updates { width: 20%; }
 .chapter-number { font-family: var(--font-display); font-variant-numeric: tabular-nums; }
 .anilist-progress-link { color: inherit; text-decoration: none; }
 .anilist-progress-link:hover { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }

@@ -14,6 +14,16 @@ anilisttoken = Bearer <token>
 anilistuserid = <your anilist userid>
 anilistclientid = <your anilist oauth client id>
 
+[suwayomi]
+; Optional. Leave baseurl empty to disable. No /api/graphql suffix.
+baseurl =
+; URL accessible from your browser, if different from the API's host (e.g. Docker).
+weburl =
+; Optional Basic auth, or a raw bearer token (token takes precedence).
+username =
+password =
+token =
+
 [push]
 pushoveruserkey = <stuff>
 pushoverappkey = <stuff>
