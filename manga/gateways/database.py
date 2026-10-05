@@ -64,10 +64,11 @@ class DatabaseGateway:
             return rows, total
 
     def getAllDetailedSeries(
-        self, title: str = None, limit: int = 50, offset: int = 0,
+        self, title: str = None, limit: int | None = 50, offset: int = 0,
         quarantined_ids=(), quarantined=None, sort_by="last_updated", sort_direction="desc",
     ):
-        limit = min(max(1, limit), 100)
+        if limit is not None:
+            limit = min(max(1, limit), 100)
         offset = max(0, offset)
         columns = {"series": "series COLLATE NOCASE", "last_updated": "last_updated", "quarantined": "quarantined"}
         if sort_by not in columns or sort_direction not in ("asc", "desc"):
@@ -102,15 +103,16 @@ class DatabaseGateway:
                 params,
             )
             total = cur.fetchone()[0]
-            cur.execute(
-                f"""
+            query = f"""
                 {cte}
                 SELECT * FROM detailed {status_where}
                 ORDER BY {order}
-                LIMIT ? OFFSET ?
-                """,
-                params + [limit, offset],
-            )
+            """
+            query_params = params
+            if limit is not None:
+                query += " LIMIT ? OFFSET ?"
+                query_params = params + [limit, offset]
+            cur.execute(query, query_params)
             series = [dict(row) for row in cur.fetchall()]
             for item in series:
                 item["quarantined"] = bool(item["quarantined"])

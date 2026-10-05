@@ -58,6 +58,15 @@ class TestDatabaseSeries(unittest.TestCase):
         self.assertEqual(total, 1)
         self.assertEqual(series[0]["last_updated"], "2026-03-01T00:00:00+00:00")
 
+    def test_limit_none_returns_all_matching_series_in_order(self):
+        for name in ("Alpha", "Beta", "Gamma"):
+            self.insert_chapter(name, "1", "2026-02-01 00:00:00")
+
+        series, total = self.database.getAllDetailedSeries(limit=None, offset=2)
+
+        self.assertEqual(total, 3)
+        self.assertEqual([item["series"] for item in series], ["Alpha", "Beta", "Gamma"])
+
     def test_normalizes_timezone_before_choosing_maximum(self):
         self.insert_chapter("Alpha", "1", "2026-02-01T10:00:00+02:00")
         self.insert_chapter("Alpha", "2", "2026-02-01T09:00:00Z")

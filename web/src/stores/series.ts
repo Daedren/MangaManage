@@ -16,6 +16,7 @@ interface Series {
     mangaupdates_status_reason: string | null;
 }
 
+export type MangaUpdatesStatus = Series['mangaupdates_status'];
 export type SortColumn = 'series' | 'last_updated' | 'quarantined';
 export type SortDirection = 'asc' | 'desc';
 type QuarantineReason =
@@ -44,6 +45,7 @@ interface FetchOptions {
     limit?: number;
     offset?: number;
     quarantined?: boolean;
+    mangaupdatesStatus?: MangaUpdatesStatus;
     sortBy?: SortColumn;
     sortDirection?: SortDirection;
 }
@@ -83,6 +85,7 @@ export const useSeriesStore = defineStore('series', () => {
                     limit: options.limit ?? 50,
                     offset: options.offset ?? 0,
                     quarantined: options.quarantined,
+                    mangaupdates_status: options.mangaupdatesStatus,
                     sort_by: options.sortBy ?? 'last_updated',
                     sort_direction: options.sortDirection ?? 'desc',
                 },

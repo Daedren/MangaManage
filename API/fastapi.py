@@ -128,13 +128,19 @@ def get_all_series(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     quarantined: bool | None = None,
+    mangaupdates_status: Literal[
+        "up_to_date", "missing_chapters", "unavailable", "unknown"
+    ] | None = None,
     sort_by: Literal["series", "last_updated", "quarantined"] = "last_updated",
     sort_direction: Literal["asc", "desc"] = "desc",
 ):
     """List series by their newest chapter creation date, including inactive chapters."""
     try:
+        filter_before_pagination = mangaupdates_status is not None
         series, total = database_gateway.getAllDetailedSeries(
-            title=title.strip() if title else None, limit=limit, offset=offset,
+            title=title.strip() if title else None,
+            limit=None if filter_before_pagination else limit,
+            offset=0 if filter_before_pagination else offset,
             quarantined_ids=filesystem_gateway.getQuarantinedSeries(),
             quarantined=quarantined, sort_by=sort_by, sort_direction=sort_direction,
         )
@@ -177,6 +183,13 @@ def get_all_series(
                     reason = "Stored chapters are behind; this series is not on your AniList list."
             item["mangaupdates_status"] = status
             item["mangaupdates_status_reason"] = reason
+        if filter_before_pagination:
+            series = [
+                item for item in series
+                if item["mangaupdates_status"] == mangaupdates_status
+            ]
+            total = len(series)
+            series = series[offset:offset + limit]
         return {"series": series, "total": total, "limit": limit, "offset": offset}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -339,10 +352,10 @@ async def quarantine_series(anilist_id: str):
 
 @app.get("/mangaupd/latest/{series_id}")
 async def get_latest_releases(series_id: int):
-    """Get the latest releases for a series from MangaUpdates."""
+    """Get the latest chapter number for a series from MangaUpdates."""
     try:
-        releases = mangaupd_gateway.latestReleasesForId(series_id)
-        return {"series_id": series_id, "releases": releases}
+        latest_chapter = mangaupd_gateway.getLatestChapterForId(series_id)
+        return {"series_id": series_id, "latest_chapter": latest_chapter}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

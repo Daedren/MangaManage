@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useSeriesStore } from '../stores/series';
-import type { SortColumn, SortDirection } from '../stores/series';
+import type { MangaUpdatesStatus, SortColumn, SortDirection } from '../stores/series';
 
 const seriesStore = useSeriesStore();
 const PAGE_SIZE = 50;
@@ -9,6 +9,8 @@ const titleFilter = ref('');
 const appliedTitle = ref('');
 const quarantineFilter = ref('all');
 const appliedQuarantine = ref('all');
+const mangaUpdatesStatusFilter = ref<'all' | MangaUpdatesStatus>('all');
+const appliedMangaUpdatesStatus = ref<'all' | MangaUpdatesStatus>('all');
 const sortBy = ref<SortColumn>('last_updated');
 const sortDirection = ref<SortDirection>('desc');
 const expandedSeries = ref(new Set<string>());
@@ -33,6 +35,9 @@ const fetch = (page: number) => {
   void seriesStore.fetchSeries({
     title: appliedTitle.value,
     quarantined: appliedQuarantine.value === 'all' ? undefined : appliedQuarantine.value === 'yes',
+    mangaupdatesStatus: appliedMangaUpdatesStatus.value === 'all'
+      ? undefined
+      : appliedMangaUpdatesStatus.value,
     sortBy: sortBy.value,
     sortDirection: sortDirection.value,
     limit: PAGE_SIZE,
@@ -44,6 +49,7 @@ const applyFilters = () => {
   if (seriesStore.isLoading) return;
   appliedTitle.value = titleFilter.value.trim();
   appliedQuarantine.value = quarantineFilter.value;
+  appliedMangaUpdatesStatus.value = mangaUpdatesStatusFilter.value;
   expandedSeries.value.clear();
   fetch(1);
 };
@@ -97,7 +103,7 @@ onMounted(() => fetch(1));
   <main class="series-page" :aria-busy="seriesStore.isLoading">
     <header class="page-header">
       <h1>Series</h1>
-      <p class="page-subtitle">Browse series by their latest chapter addition, including inactive chapters.</p>
+      <p class="page-subtitle">Last updated includes inactive chapters; latest available chapter includes active chapters only.</p>
     </header>
 
     <form class="filter-bar" aria-label="Filter series" @submit.prevent="applyFilters">
@@ -111,6 +117,16 @@ onMounted(() => fetch(1));
           <option value="all">All series</option>
           <option value="yes">Quarantined</option>
           <option value="no">Not quarantined</option>
+        </select>
+      </label>
+      <label class="filter-field filter-field--status">
+        <span class="field-label">MangaUpdates status</span>
+        <select v-model="mangaUpdatesStatusFilter" aria-label="Filter by MangaUpdates status">
+          <option value="all">All statuses</option>
+          <option value="up_to_date">Up to date</option>
+          <option value="missing_chapters">Missing chapters</option>
+          <option value="unavailable">Unavailable</option>
+          <option value="unknown">Unknown</option>
         </select>
       </label>
       <button type="submit" :disabled="seriesStore.isLoading">Search</button>
@@ -144,6 +160,7 @@ onMounted(() => fetch(1));
               <th scope="col" class="col-date" :aria-sort="ariaSort('last_updated')">
                 <button class="sort-button" :disabled="seriesStore.isLoading" @click="changeSort('last_updated')">Last updated <span aria-hidden="true">{{ sortIndicator('last_updated') }}</span></button>
               </th>
+              <th scope="col" class="col-latest-chapter">Latest available chapter</th>
               <th scope="col" class="col-updates">MangaUpdates</th>
               <th scope="col" class="col-status" :aria-sort="ariaSort('quarantined')">
                 <button class="sort-button" :disabled="seriesStore.isLoading" @click="changeSort('quarantined')">Quarantined <span aria-hidden="true">{{ sortIndicator('quarantined') }}</span></button>
@@ -158,6 +175,12 @@ onMounted(() => fetch(1));
                   <time v-if="series.last_updated" :datetime="series.last_updated">
                     {{ formatDate(series.last_updated) }}
                   </time>
+                  <span v-else>—</span>
+                </td>
+                <td class="col-latest-chapter">
+                  <span v-if="series.latest_stored_chapter !== null" class="chapter-number">
+                    {{ series.latest_stored_chapter }}
+                  </span>
                   <span v-else>—</span>
                 </td>
                 <td class="col-updates">
@@ -184,7 +207,7 @@ onMounted(() => fetch(1));
                 </td>
               </tr>
               <tr v-if="expandedSeries.has(series.series) && series.anilistId !== null" class="details-row">
-                <td :id="`quarantine-details-${index}`" colspan="4">
+                <td :id="`quarantine-details-${index}`" colspan="5">
                   <section :aria-label="`Quarantine reasons for ${series.series}`" :aria-busy="seriesStore.quarantineDetails[series.anilistId]?.loading">
                     <h2 class="details-heading">Quarantine reasons</h2>
                     <p class="details-note">Current gap check; viewing this does not change quarantine status.</p>
@@ -300,7 +323,7 @@ th {
 
 table {
   width: 100%;
-  min-width: 600px;
+  min-width: 720px;
   table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--text-sm);
@@ -328,13 +351,14 @@ tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: var(--color-paper-3); }
 
 .col-date {
-  width: 24%;
+  width: 20%;
   font-family: var(--font-display);
   font-size: var(--text-xs);
   color: var(--color-ink-2);
   font-variant-numeric: tabular-nums;
 }
 
+.col-latest-chapter { width: 13%; }
 .col-status { width: 17%; }
 .col-updates { width: 24%; }
 .chapter-number { font-family: var(--font-display); font-variant-numeric: tabular-nums; }

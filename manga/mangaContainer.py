@@ -52,6 +52,6 @@ class MangaContainer:
         )
 
         self.checkForUpdates = CheckForUpdates(
-            mangaUpdates, self.database, self.tracker, self.calculateChapterName
+            mangaUpdates, self.database, self.tracker
         )
         pass
