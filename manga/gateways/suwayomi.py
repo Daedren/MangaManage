@@ -81,7 +81,7 @@ class SuwayomiGateway:
     """Suwayomi lookups, on-demand gap downloads and single-entry migration."""
 
     def __init__(self, base_url="", web_url="", username="", password="",
-                 token="", transport=None, clock=None):
+                 token="", transport=None, clock=None, migration_languages="en"):
         self.base_url = base_url.strip().rstrip("/")
         self.web_url = web_url.strip().rstrip("/") or self.base_url
         for url in (self.base_url, self.web_url):
@@ -106,6 +106,9 @@ class SuwayomiGateway:
         self._has_snapshot = False
         self._title_cache = OrderedDict()
         self._title_retry_at = 0
+        self.migration_languages = frozenset(
+            language.strip().casefold() for language in migration_languages.split(",") if language.strip()
+        ) or frozenset({"en"})
         # Migration and gap downloads share the same mutation lock.
         self.migration = SuwayomiMigration(self)
 
@@ -235,13 +238,13 @@ class SuwayomiGateway:
             error.close()
         logging.getLogger(__name__).warning("Suwayomi gap-download request failed")
 
-    def _downloadGraphql(self, query, variables):
+    def _downloadGraphql(self, query, variables, timeout=DOWNLOAD_REQUEST_TIMEOUT_SECONDS):
         request = urllib.request.Request(
             self.base_url + "/api/graphql",
             data=json.dumps({"query": query, "variables": variables}).encode(),
             headers=self._headers, method="POST",
         )
-        with self._transport(request, timeout=DOWNLOAD_REQUEST_TIMEOUT_SECONDS) as response:
+        with self._transport(request, timeout=timeout) as response:
             payload = json.loads(response.read())
         if (not isinstance(payload, dict) or payload.get("errors")
                 or not isinstance(payload.get("data"), dict)):

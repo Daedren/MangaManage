@@ -29,6 +29,7 @@ class GatewayContainer:
             username=self.config.get("suwayomi", "username", fallback=""),
             password=self.config.get("suwayomi", "password", fallback=""),
             token=self.config.get("suwayomi", "token", fallback=""),
+            migration_languages=self.config.get("suwayomi", "migration_languages", fallback="en"),
         )
         # self.tracker = FakeAnilistGateway()
 

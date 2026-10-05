@@ -57,6 +57,12 @@ class ConsecutiveGapRequest(BaseModel):
 GapDownloadRequest = Annotated[TrackerGapRequest | ConsecutiveGapRequest, Body(discriminator="type")]
 
 
+class MigrationSuggestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    original_manga_id: int = Field(ge=0, strict=True)
+    query: str = Field(min_length=1, max_length=300, strict=True)
+
+
 class MigrationSearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     original_manga_id: int = Field(ge=0, strict=True)
@@ -349,6 +355,15 @@ def search_series_migration(
 ):
     return migration_response(lambda: suwayomi_gateway.migration.search(
         anilist_id, request.original_manga_id, request.source_id, request.query, request.page,
+    ))
+
+
+@app.post("/database/series/{anilist_id}/migration/suggest")
+def suggest_series_migration(
+    anilist_id: Annotated[int, Path(ge=1)], request: MigrationSuggestRequest,
+):
+    return migration_response(lambda: suwayomi_gateway.migration.suggest(
+        anilist_id, request.original_manga_id, request.query,
     ))
 
 

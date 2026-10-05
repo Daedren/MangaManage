@@ -9,10 +9,12 @@ import axios from 'axios';
 const server = await createServer({
   configFile: false,
   server: { middlewareMode: true, hmr: false },
+  optimizeDeps: { noDiscovery: true, include: [] },
   resolve: { alias: { '@': fileURLToPath(new URL('../src', import.meta.url)) } },
 });
 const { useLogsStore } = await server.ssrLoadModule('/src/stores/logs.ts');
 const { useTasksStore } = await server.ssrLoadModule('/src/stores/tasks.ts');
+const { useSeriesStore } = await server.ssrLoadModule('/src/stores/series.ts');
 after(() => server.close());
 
 class FakeEventSource {
@@ -42,6 +44,30 @@ const run = (status = 'running', id = 'a'.repeat(32)) => ({
   error: status === 'failed' ? 'Task failed. See its logs for details.' : null,
 });
 const settle = () => new Promise(setImmediate);
+
+test('migration suggestions send only original entry and title and preserve ranked candidates', async (t) => {
+  const result = {
+    candidates: [{ manga_id: 2, source_id: '9007199254740995', source_name: 'English source',
+      title: 'Example manga', chapter_count: 12, in_library: false, url: 'http://reader/manga/2' }],
+    warnings: ['One source failed.'], complete: false,
+  };
+  t.mock.method(axios, 'post', async (url, body) => {
+    assert.match(url, /\/database\/series\/42\/migration\/suggest$/);
+    assert.deepEqual(body, { original_manga_id: 1, query: 'Example manga' });
+    return { data: result };
+  });
+  assert.deepEqual(await useSeriesStore().suggestMigration(42, 1, 'Example manga'), result);
+});
+
+test('migration suggestion errors propagate without retrying or migrating', async (t) => {
+  let calls = 0;
+  t.mock.method(axios, 'post', async () => {
+    calls++;
+    throw new Error('Unavailable');
+  });
+  await assert.rejects(useSeriesStore().suggestMigration(42, 1, 'Example manga'), /Unavailable/);
+  assert.equal(calls, 1);
+});
 
 test('snapshot + SSE append, duplicate cursors, rotation and completed stream', async (t) => {
   t.mock.method(axios, 'get', async () => ({ data: chunk('first\n', 'one:6', true) }));

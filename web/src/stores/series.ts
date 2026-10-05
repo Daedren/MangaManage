@@ -30,12 +30,18 @@ export interface MigrationManga {
 }
 export interface MigrationContext {
     original: MigrationManga;
+    languages: string[];
     sources: { id: string; name: string; language: string }[];
 }
 export interface MigrationSearchResult {
     results: { manga_id: number; title: string; in_library: boolean; url: string }[];
     has_next_page: boolean;
     page: number;
+}
+export interface MigrationSuggestion {
+    candidates: (MigrationManga & { chapter_count: number })[];
+    warnings: string[];
+    complete: boolean;
 }
 export interface MigrationOptions {
     original_manga_id: number;
@@ -137,6 +143,13 @@ export const useSeriesStore = defineStore('series', () => {
         );
         return response.data;
     };
+    const suggestMigration = async (id: number, originalMangaId: number, query: string) => {
+        const response = await axios.post<MigrationSuggestion>(
+            `${config.apiBaseUrl}/database/series/${id}/migration/suggest`,
+            { original_manga_id: originalMangaId, query },
+        );
+        return response.data;
+    };
     const previewMigration = async (id: number, options: MigrationOptions) => {
         const response = await axios.post<MigrationPreview>(
             `${config.apiBaseUrl}/database/series/${id}/migration/preview`, options,
@@ -229,6 +242,6 @@ export const useSeriesStore = defineStore('series', () => {
     return {
         series, total, isLoading, error, fetchSeries, quarantineDetails,
         fetchQuarantineDetails, refreshMangaUpdatesChapter, gapDownloads, downloadQuarantineGap,
-        fetchMigrationContext, searchMigration, previewMigration, migrateSeries,
+        fetchMigrationContext, searchMigration, suggestMigration, previewMigration, migrateSeries,
     };
 });

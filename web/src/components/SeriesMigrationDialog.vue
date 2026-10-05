@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { migrationErrorMessage, migrationPreviewChanged, useSeriesStore } from '../stores/series';
-import type { MigrationContext, MigrationOptions, MigrationPreview, MigrationResult, MigrationSearchResult } from '../stores/series';
+import type { MigrationContext, MigrationOptions, MigrationPreview, MigrationResult, MigrationSearchResult, MigrationSuggestion } from '../stores/series';
 
 const props = defineProps<{ anilistId: number; originalMangaId: number; series: string }>();
 const emit = defineEmits<{ close: []; changed: [] }>();
@@ -11,12 +11,13 @@ const context = ref<MigrationContext>();
 const sourceId = ref('');
 const query = ref('');
 const searchResults = ref<MigrationSearchResult>();
+const suggestion = ref<MigrationSuggestion>();
 const selectedId = ref<number | null>(null);
 const migrateChapters = ref(true);
 const migrateCategories = ref(true);
 const preview = ref<MigrationPreview>();
 const result = ref<MigrationResult>();
-const busy = ref<'context' | 'search' | 'preview' | 'migration' | ''>('context');
+const busy = ref<'context' | 'search' | 'suggest' | 'preview' | 'migration' | ''>('context');
 const error = ref('');
 const requestUncertain = ref(false);
 let generation = 0;
@@ -48,7 +49,10 @@ const loadContext = async () => {
   try {
     const data = await store.fetchMigrationContext(props.anilistId, props.originalMangaId);
     if (current !== generation) return;
-    context.value = data;
+    // Keep the dialog usable while the API is being restarted after an upgrade.
+    const languages = data.languages ?? ['en'];
+    context.value = { ...data, languages,
+      sources: data.sources.filter(source => languages.includes(source.language.toLowerCase())) };
     query.value = data.original.title;
     await nextTick();
     dialog.value?.querySelector<HTMLSelectElement>('select')?.focus();
@@ -62,8 +66,9 @@ const loadContext = async () => {
 watch([sourceId, query], () => {
   if (busy.value === 'context') return;
   generation++;
-  if (busy.value === 'search' || busy.value === 'preview') busy.value = '';
+  if (busy.value === 'search' || busy.value === 'suggest' || busy.value === 'preview') busy.value = '';
   searchResults.value = undefined;
+  suggestion.value = undefined;
   selectedId.value = null;
   preview.value = undefined;
 });
@@ -76,6 +81,7 @@ watch([selectedId, migrateChapters, migrateCategories], () => {
 const search = async (page = 1) => {
   if (busy.value || !sourceId.value || !query.value.trim()) return;
   preview.value = undefined;
+  suggestion.value = undefined;
   selectedId.value = null;
   await nextTick();
   const current = ++generation;
@@ -84,6 +90,29 @@ const search = async (page = 1) => {
   try {
     const data = await store.searchMigration(props.anilistId, props.originalMangaId, sourceId.value, query.value.trim(), page);
     if (current === generation) searchResults.value = data;
+  } catch (caught) {
+    if (current === generation) error.value = migrationErrorMessage(caught);
+  } finally {
+    if (current === generation) busy.value = '';
+  }
+};
+
+const suggest = async () => {
+  if (busy.value || !query.value.trim()) return;
+  selectedId.value = null;
+  searchResults.value = undefined;
+  suggestion.value = undefined;
+  preview.value = undefined;
+  await nextTick();
+  const current = ++generation;
+  busy.value = 'suggest';
+  error.value = '';
+  try {
+    const data = await store.suggestMigration(props.anilistId, props.originalMangaId, query.value.trim());
+    if (current !== generation) return;
+    suggestion.value = data;
+    busy.value = '';
+    selectedId.value = data.candidates[0]?.manga_id ?? null;
   } catch (caught) {
     if (current === generation) error.value = migrationErrorMessage(caught);
   } finally {
@@ -155,7 +184,7 @@ onBeforeUnmount(() => {
 
       <p v-if="error" class="feedback feedback--error" role="alert">{{ error }}</p>
       <p v-if="busy" class="feedback" role="status">
-        {{ busy === 'context' ? 'Loading installed sources…' : busy === 'search' ? 'Searching source…' : busy === 'preview' ? 'Refreshing destination and checking transfers…' : 'Migrating… Keep this window open until the result is confirmed.' }}
+        {{ busy === 'context' ? 'Loading installed sources…' : busy === 'search' ? 'Searching source…' : busy === 'suggest' ? 'Searching allowed sources and refreshing chapter counts… This may take about a minute.' : busy === 'preview' ? 'Refreshing destination and checking transfers…' : 'Migrating… Keep this window open until the result is confirmed.' }}
       </p>
 
       <template v-if="result">
@@ -172,22 +201,38 @@ onBeforeUnmount(() => {
       </p>
       <template v-else-if="context">
         <p class="original-entry">From <a :href="context.original.url" target="_blank" rel="noopener noreferrer">{{ context.original.title }}</a> · {{ context.original.source_name }}</p>
-        <p v-if="!context.sources.length" class="feedback">No other installed sources are available. Install a destination extension in Suwayomi first.</p>
+        <p>Destination languages: {{ context.languages.join(', ') }}. Configure migration_languages in settings.ini to change them.</p>
+        <p v-if="!context.sources.length" class="feedback">No other installed sources match the allowed languages. Install a matching destination extension in Suwayomi first.</p>
         <template v-else>
           <form class="search-form" @submit.prevent="search()">
             <label>
               <span>Destination source</span>
-              <select v-model="sourceId" :disabled="busy === 'migration'" required>
+              <select v-model="sourceId" :disabled="busy === 'migration' || busy === 'suggest'" required>
                 <option value="" disabled>Choose a source</option>
                 <option v-for="source in context.sources" :key="source.id" :value="source.id">{{ source.name }} ({{ source.language }})</option>
               </select>
             </label>
             <label>
               <span>Manga title</span>
-              <input v-model="query" type="search" maxlength="300" required :disabled="busy === 'migration'" />
+              <input v-model="query" type="search" maxlength="300" required :disabled="busy === 'migration' || busy === 'suggest'" />
             </label>
-            <button type="submit" :disabled="Boolean(busy) || !sourceId || !query.trim()">Search</button>
+            <div class="actions">
+              <button type="submit" :disabled="Boolean(busy) || !sourceId || !query.trim()">Search</button>
+              <button type="button" class="ghost" :disabled="Boolean(busy) || !query.trim()" @click="suggest">Suggest source with most chapters</button>
+            </div>
           </form>
+
+          <fieldset v-if="suggestion" class="results" :disabled="Boolean(busy)">
+            <legend>{{ suggestion.complete ? 'Suggested destinations' : 'Best destinations among checked matches' }}</legend>
+            <p>Ranked by unique chapter numbers, including decimals; duplicate scanlations count once. Unknown chapter numbers are ignored. The first result is preselected; review it before migrating.</p>
+            <p v-for="warning in suggestion.warnings" :key="warning" class="feedback feedback--warning" role="status">{{ warning }}</p>
+            <p v-if="!suggestion.candidates.length" role="status">No matching destination with chapters could be suggested. Try an alternate title or search a source manually.</p>
+            <label v-for="match in suggestion.candidates" :key="match.manga_id" class="result-option">
+              <input v-model="selectedId" type="radio" name="migration-destination" :value="match.manga_id" />
+              <span>{{ match.title }}<small>{{ match.source_name }} · {{ match.chapter_count }} unique chapters</small><small v-if="match.in_library">Already in your library; existing state will be preserved.</small></span>
+              <a :href="match.url" target="_blank" rel="noopener noreferrer" :aria-label="`Open ${match.title} in Suwayomi`">Open</a>
+            </label>
+          </fieldset>
 
           <fieldset v-if="searchResults" class="results" :disabled="Boolean(busy)">
             <legend>Choose the matching manga</legend>

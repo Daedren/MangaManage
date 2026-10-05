@@ -10,6 +10,8 @@ import logging
 import math
 import re
 import secrets
+import time
+import unicodedata
 import urllib.error
 from collections import OrderedDict
 
@@ -17,6 +19,9 @@ from collections import OrderedDict
 PAGE_SIZE = 100
 MAX_PAGES = 1000
 PREVIEW_TTL = 600
+SUGGEST_MAX_PAGES = 3
+SUGGEST_MAX_CANDIDATES = 30
+SUGGEST_TIMEOUT = 60
 REQUIRED_MUTATIONS = {
     "fetchSourceManga", "fetchMangaAndChapters", "updateManga",
     "updateChapters", "updateMangaCategories", "bindTrackRecord", "unbindTrack",
@@ -131,10 +136,15 @@ class SuwayomiMigration:
         self._secret = secrets.token_bytes(32)
         self._used_previews = OrderedDict()
 
-    def _request(self, query, variables):
+    def _request(self, query, variables, deadline=None):
         if not self.gateway.base_url:
             raise SuwayomiMigrationError("Suwayomi is not configured. Configure it in settings.ini first.")
         try:
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise SuwayomiMigrationError("Suggestion time limit reached.")
+                return self.gateway._downloadGraphql(query, variables, timeout=min(10, remaining))
             return self.gateway._downloadGraphql(query, variables)
         except SuwayomiMigrationError:
             raise
@@ -162,10 +172,12 @@ class SuwayomiMigration:
                     "language": _text(item["lang"])} for item in nodes]
         if len({item["id"] for item in sources}) != len(sources):
             raise ValueError("Duplicate sources")
-        return sorted(sources, key=lambda item: (item["name"].casefold(), item["language"], item["id"]))
+        return sorted((source for source in sources
+                       if source["language"].casefold() in self.gateway.migration_languages),
+                      key=lambda item: (item["name"].casefold(), item["language"], item["id"]))
 
-    def _manga(self, manga_id, chapters=False):
-        manga = self._request(MANGA_QUERY, {"id": manga_id})["manga"]
+    def _manga(self, manga_id, chapters=False, deadline=None):
+        manga = self._request(MANGA_QUERY, {"id": manga_id}, deadline)["manga"]
         if manga is None:
             raise SuwayomiMigrationError("This manga is no longer available in Suwayomi. Refresh its details.", 409)
         if _id(manga["id"]) != manga_id or type(manga["inLibrary"]) is not bool:
@@ -192,15 +204,17 @@ class SuwayomiMigration:
         tracker_ids = [item["trackerId"] for item in manga["trackRecords"]["nodes"]]
         if len(tracker_ids) != len(set(tracker_ids)):
             raise ValueError("Duplicate trackers")
-        manga["chapters"] = self._chapters(manga_id) if chapters else []
+        manga["chapters"] = self._chapters(manga_id, deadline) if chapters else []
         return manga
 
-    def _chapters(self, manga_id):
+    def _chapters(self, manga_id, deadline=None):
         chapters, seen, total = [], set(), None
         for _ in range(MAX_PAGES):
+            if deadline is not None and time.monotonic() >= deadline:
+                raise SuwayomiMigrationError("Chapter check time limit reached.")
             page = self._request(CHAPTERS_QUERY, {
                 "id": manga_id, "first": PAGE_SIZE, "offset": len(chapters),
-            })["chapters"]
+            }, deadline)["chapters"]
             nodes, has_next = page["nodes"], page["pageInfo"]["hasNextPage"]
             if (not isinstance(nodes, list) or type(has_next) is not bool
                     or type(page["totalCount"]) is not int or page["totalCount"] < 0
@@ -238,29 +252,96 @@ class SuwayomiMigration:
         with self.gateway._download_lock:
             original = self._original(anilist_id, original_id)
             return {"original": self._summary(original),
+                    "languages": sorted(self.gateway.migration_languages),
                     "sources": [source for source in self.sources() if source["id"] != original["sourceId"]]}
 
     def search(self, anilist_id, original_id, source_id, query, page):
         with self.gateway._download_lock:
             original = self._original(anilist_id, original_id)
             if source_id == original["sourceId"] or source_id not in {source["id"] for source in self.sources()}:
-                raise SuwayomiMigrationError("Choose another installed Suwayomi source.", 409)
-            data = self._request(SEARCH_MUTATION, {"input": {
-                "source": source_id, "type": "SEARCH", "query": query.strip(), "page": page,
-            }})["fetchSourceManga"]
-            if type(data["hasNextPage"]) is not bool or not isinstance(data["mangas"], list):
-                raise ValueError("Invalid search results")
-            results = []
-            seen = set()
-            for item in data["mangas"]:
-                manga_id = _id(item["id"])
-                if (_source_id(item["sourceId"]) != source_id or manga_id in seen
-                        or type(item["inLibrary"]) is not bool):
-                    raise ValueError("Invalid search manga")
-                seen.add(manga_id)
-                results.append({"manga_id": manga_id, "title": _text(item["title"]),
-                                "in_library": item["inLibrary"], "url": self._url(manga_id)})
-            return {"results": results, "has_next_page": data["hasNextPage"], "page": page}
+                raise SuwayomiMigrationError("Choose another installed source in an allowed migration language.", 409)
+            return self._search(source_id, query, page)
+
+    def _search(self, source_id, query, page, deadline=None):
+        data = self._request(SEARCH_MUTATION, {"input": {
+            "source": source_id, "type": "SEARCH", "query": query.strip(), "page": page,
+        }}, deadline)["fetchSourceManga"]
+        if type(data["hasNextPage"]) is not bool or not isinstance(data["mangas"], list):
+            raise ValueError("Invalid search results")
+        results = []
+        seen = set()
+        for item in data["mangas"]:
+            manga_id = _id(item["id"])
+            if (_source_id(item["sourceId"]) != source_id or manga_id in seen
+                    or type(item["inLibrary"]) is not bool):
+                raise ValueError("Invalid search manga")
+            seen.add(manga_id)
+            results.append({"manga_id": manga_id, "title": _text(item["title"]),
+                            "in_library": item["inLibrary"], "url": self._url(manga_id)})
+        return {"results": results, "has_next_page": data["hasNextPage"], "page": page}
+
+    @staticmethod
+    def _title_key(title):
+        return "".join(char for char in unicodedata.normalize("NFKC", title).casefold() if char.isalnum())
+
+    def suggest(self, anilist_id, original_id, query):
+        # Discovery only: refresh cached details/chapters, never transfer user state.
+        with self.gateway._download_lock:
+            original = self._original(anilist_id, original_id)
+            sources = [source for source in self.sources() if source["id"] != original["sourceId"]]
+            title_keys = {self._title_key(query), self._title_key(original["title"])} - {""}
+            candidates, warnings, seen = [], [], set()
+            deadline = time.monotonic() + SUGGEST_TIMEOUT
+            checked = 0
+            for source in sources:
+                if time.monotonic() >= deadline or checked >= SUGGEST_MAX_CANDIDATES:
+                    warnings.append("Search limit reached; some sources or matches were not checked.")
+                    break
+                try:
+                    for page in range(1, SUGGEST_MAX_PAGES + 1):
+                        if time.monotonic() >= deadline or checked >= SUGGEST_MAX_CANDIDATES:
+                            warnings.append("Search limit reached; some sources or matches were not checked.")
+                            break
+                        results = self._search(source["id"], query, page, deadline)
+                        for match in results["results"]:
+                            if self._title_key(match["title"]) not in title_keys:
+                                warnings.append("Non-exact title matches were skipped. Use manual search for alternate titles.")
+                                continue
+                            manga_id = match["manga_id"]
+                            if manga_id in seen:
+                                continue
+                            if time.monotonic() >= deadline or checked >= SUGGEST_MAX_CANDIDATES:
+                                warnings.append("Search limit reached; some sources or matches were not checked.")
+                                break
+                            seen.add(manga_id)
+                            checked += 1
+                            try:
+                                destination = self._manga(manga_id, deadline=deadline)
+                                self._check_trackers(original, destination)
+                                fetched = self._request(FETCH_MUTATION, {"id": manga_id, "chapters": True}, deadline)
+                                if _id(fetched["fetchMangaAndChapters"]["manga"]["id"]) != manga_id:
+                                    raise ValueError("Destination refresh was not confirmed")
+                                destination = self._manga(manga_id, chapters=True, deadline=deadline)
+                                if (destination["sourceId"] != source["id"]
+                                        or self._title_key(destination["title"]) not in title_keys):
+                                    raise ValueError("Destination changed")
+                                self._check_trackers(original, destination)
+                                count = len({chapter["chapterNumber"] for chapter in destination["chapters"]
+                                             if chapter["chapterNumber"] >= 0})
+                                if count:
+                                    candidates.append({**self._summary(destination), "chapter_count": count})
+                            except Exception:
+                                warnings.append(f"A match on {source['name']} could not be checked or has conflicting tracking records.")
+                        if not results["has_next_page"]:
+                            break
+                        if page == SUGGEST_MAX_PAGES:
+                            warnings.append(f"Search page limit reached on {source['name']}; more matches may exist.")
+                except Exception:
+                    warnings.append(f"{source['name']} could not be searched.")
+            candidates.sort(key=lambda item: (-item["chapter_count"], item["source_name"].casefold(),
+                                               item["source_id"], item["manga_id"]))
+            return {"candidates": candidates, "warnings": list(dict.fromkeys(warnings)),
+                    "complete": not warnings}
 
     def _prepare(self, anilist_id, original_id, destination_id, options):
         if original_id == destination_id:
@@ -270,11 +351,13 @@ class SuwayomiMigration:
         if original["sourceId"] == destination["sourceId"]:
             raise SuwayomiMigrationError("Choose a manga on a different source.", 409)
         if destination["sourceId"] not in {source["id"] for source in self.sources()}:
-            raise SuwayomiMigrationError("The destination source is no longer installed.", 409)
+            raise SuwayomiMigrationError("The destination source is not installed or its language is not allowed.", 409)
         fetched = self._request(FETCH_MUTATION, {"id": destination_id, "chapters": options["migrate_chapters"]})
         if _id(fetched["fetchMangaAndChapters"]["manga"]["id"]) != destination_id:
             raise ValueError("Destination refresh was not confirmed")
         destination = self._manga(destination_id, options["migrate_chapters"])
+        if destination["sourceId"] not in {source["id"] for source in self.sources()}:
+            raise SuwayomiMigrationError("The destination source is not installed or its language is not allowed.", 409)
         if original["sourceId"] == destination["sourceId"]:
             raise SuwayomiMigrationError("Choose a manga on a different source.", 409)
         self._check_trackers(original, destination)
