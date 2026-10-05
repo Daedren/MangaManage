@@ -144,13 +144,9 @@ def get_all_series(
             quarantined_ids=filesystem_gateway.getQuarantinedSeries(),
             quarantined=quarantined, sort_by=sort_by, sort_direction=sort_direction,
         )
-        # Only fetch the bulk snapshot when stored chapters cannot establish the status.
-        needs_progress = any(
-            item.get("mangaupdates_latest_chapter") is not None
-            and (item.get("latest_stored_chapter") or 0) < item["mangaupdates_latest_chapter"]
-            and item["anilistId"] is not None
-            for item in series
-        )
+        # Load a single bulk snapshot whenever this page has mapped series, both
+        # for the displayed last-read chapter and MangaUpdates status checks.
+        needs_progress = any(item.get("anilistId") is not None for item in series)
         progress, progress_error = get_all_read_progress() if needs_progress else (None, None)
         for item in series:
             latest = item.get("mangaupdates_latest_chapter")
@@ -352,9 +348,11 @@ async def quarantine_series(anilist_id: str):
 
 @app.get("/mangaupd/latest/{series_id}")
 async def get_latest_releases(series_id: int):
-    """Get the latest chapter number for a series from MangaUpdates."""
+    """Get the latest chapter from MangaUpdates and cache it in the database."""
     try:
         latest_chapter = mangaupd_gateway.getLatestChapterForId(series_id)
+        if latest_chapter is not None:
+            database_gateway.updateMangaUpdtLatestChapter(series_id, latest_chapter)
         return {"series_id": series_id, "latest_chapter": latest_chapter}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

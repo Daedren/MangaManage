@@ -100,5 +100,15 @@ export const useSeriesStore = defineStore('series', () => {
         }
     };
 
-    return { series, total, isLoading, error, fetchSeries, quarantineDetails, fetchQuarantineDetails };
+    const refreshMangaUpdatesChapter = async (seriesId: number) => {
+        const response = await axios.get<{ series_id: number; latest_chapter: number | null }>(
+            `${config.apiBaseUrl}/mangaupd/latest/${seriesId}`,
+        );
+        return response.data.latest_chapter;
+    };
+
+    return {
+        series, total, isLoading, error, fetchSeries, quarantineDetails,
+        fetchQuarantineDetails, refreshMangaUpdatesChapter,
+    };
 });

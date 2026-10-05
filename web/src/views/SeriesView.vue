@@ -14,6 +14,8 @@ const appliedMangaUpdatesStatus = ref<'all' | MangaUpdatesStatus>('all');
 const sortBy = ref<SortColumn>('last_updated');
 const sortDirection = ref<SortDirection>('desc');
 const expandedSeries = ref(new Set<string>());
+const refreshingMangaUpdates = ref(new Set<number>());
+const mangaUpdatesRefreshErrors = ref<Record<number, string>>({});
 const currentPage = ref(1);
 const totalPages = computed(() => Math.max(1, Math.ceil(seriesStore.total / PAGE_SIZE)));
 const rangeStart = computed(() => (currentPage.value - 1) * PAGE_SIZE + 1);
@@ -43,6 +45,38 @@ const fetch = (page: number) => {
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
   });
+};
+
+const refreshMangaUpdates = async (seriesId: number) => {
+  if (refreshingMangaUpdates.value.has(seriesId)) return;
+  refreshingMangaUpdates.value = new Set(refreshingMangaUpdates.value).add(seriesId);
+  const errors = { ...mangaUpdatesRefreshErrors.value };
+  delete errors[seriesId];
+  mangaUpdatesRefreshErrors.value = errors;
+
+  try {
+    await seriesStore.refreshMangaUpdatesChapter(seriesId);
+    await seriesStore.fetchSeries({
+      title: appliedTitle.value,
+      quarantined: appliedQuarantine.value === 'all' ? undefined : appliedQuarantine.value === 'yes',
+      mangaupdatesStatus: appliedMangaUpdatesStatus.value === 'all'
+        ? undefined
+        : appliedMangaUpdatesStatus.value,
+      sortBy: sortBy.value,
+      sortDirection: sortDirection.value,
+      limit: PAGE_SIZE,
+      offset: (currentPage.value - 1) * PAGE_SIZE,
+    });
+  } catch {
+    mangaUpdatesRefreshErrors.value = {
+      ...mangaUpdatesRefreshErrors.value,
+      [seriesId]: 'Unable to refresh this MangaUpdates chapter. Try again.',
+    };
+  } finally {
+    const refreshing = new Set(refreshingMangaUpdates.value);
+    refreshing.delete(seriesId);
+    refreshingMangaUpdates.value = refreshing;
+  }
 };
 
 const applyFilters = () => {
@@ -146,7 +180,7 @@ onMounted(() => fetch(1));
       </p>
 
       <p v-if="seriesStore.series.length > 0" class="updates-note">
-        MangaUpdates chapters are cached; refresh them using the MangaUpdates check on the Tasks page.
+        MangaUpdates chapters are cached; click a chapter number to refresh it, or use the MangaUpdates check on the Tasks page to refresh them all.
         Up to date means stored chapters or AniList last read have reached the cached chapter, not that there are no gaps.
       </p>
 
@@ -161,6 +195,7 @@ onMounted(() => fetch(1));
                 <button class="sort-button" :disabled="seriesStore.isLoading" @click="changeSort('last_updated')">Last updated <span aria-hidden="true">{{ sortIndicator('last_updated') }}</span></button>
               </th>
               <th scope="col" class="col-latest-chapter">Latest available chapter</th>
+              <th scope="col" class="col-anilist-progress">AniList last read</th>
               <th scope="col" class="col-updates">MangaUpdates</th>
               <th scope="col" class="col-status" :aria-sort="ariaSort('quarantined')">
                 <button class="sort-button" :disabled="seriesStore.isLoading" @click="changeSort('quarantined')">Quarantined <span aria-hidden="true">{{ sortIndicator('quarantined') }}</span></button>
@@ -183,14 +218,38 @@ onMounted(() => fetch(1));
                   </span>
                   <span v-else>—</span>
                 </td>
+                <td class="col-anilist-progress">
+                  <a
+                    v-if="series.anilistId !== null && series.anilist_last_read !== null"
+                    class="chapter-number anilist-progress-link"
+                    :href="`https://anilist.co/manga/${series.anilistId}`"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    :aria-label="`AniList last read chapter ${series.anilist_last_read} for ${series.series}`"
+                  >{{ series.anilist_last_read }}</a>
+                  <span v-else>—</span>
+                </td>
                 <td class="col-updates">
                   <template v-if="series.mangaupdates_latest_chapter !== null">
-                    <span class="chapter-number">{{ series.mangaupdates_latest_chapter }}</span>
+                    <button
+                      v-if="series.mangaupdates_id !== null"
+                      class="chapter-refresh chapter-number"
+                      :disabled="refreshingMangaUpdates.has(series.mangaupdates_id)"
+                      :aria-label="`Refresh MangaUpdates chapter for ${series.series}`"
+                      :title="`Click to fetch the latest chapter for ${series.series}`"
+                      @click="refreshMangaUpdates(series.mangaupdates_id)"
+                    >
+                      {{ refreshingMangaUpdates.has(series.mangaupdates_id) ? 'Refreshing…' : series.mangaupdates_latest_chapter }}
+                    </button>
+                    <span v-else class="chapter-number">{{ series.mangaupdates_latest_chapter }}</span>
                     <span class="update-status" :class="`update-status--${series.mangaupdates_status}`">
                       {{ updateStatusLabel(series.mangaupdates_status) }}
                     </span>
                   </template>
                   <span v-else>N/A</span>
+                  <span v-if="series.mangaupdates_id !== null && mangaUpdatesRefreshErrors[series.mangaupdates_id]" class="update-reason" role="alert">
+                    {{ mangaUpdatesRefreshErrors[series.mangaupdates_id] }}
+                  </span>
                   <span v-if="series.mangaupdates_status_reason" class="update-reason">
                     {{ series.mangaupdates_status_reason }}
                   </span>
@@ -207,7 +266,7 @@ onMounted(() => fetch(1));
                 </td>
               </tr>
               <tr v-if="expandedSeries.has(series.series) && series.anilistId !== null" class="details-row">
-                <td :id="`quarantine-details-${index}`" colspan="5">
+                <td :id="`quarantine-details-${index}`" colspan="6">
                   <section :aria-label="`Quarantine reasons for ${series.series}`" :aria-busy="seriesStore.quarantineDetails[series.anilistId]?.loading">
                     <h2 class="details-heading">Quarantine reasons</h2>
                     <p class="details-note">Current gap check; viewing this does not change quarantine status.</p>
@@ -323,7 +382,7 @@ th {
 
 table {
   width: 100%;
-  min-width: 720px;
+  min-width: 820px;
   table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--text-sm);
@@ -358,10 +417,35 @@ tbody tr:hover { background: var(--color-paper-3); }
   font-variant-numeric: tabular-nums;
 }
 
-.col-latest-chapter { width: 13%; }
+.col-latest-chapter { width: 12%; }
+.col-anilist-progress { width: 12%; }
 .col-status { width: 17%; }
-.col-updates { width: 24%; }
+.col-updates { width: 22%; }
 .chapter-number { font-family: var(--font-display); font-variant-numeric: tabular-nums; }
+.anilist-progress-link { color: inherit; text-decoration: none; }
+.anilist-progress-link:hover { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }
+.anilist-progress-link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.chapter-refresh {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  line-height: inherit;
+}
+.chapter-refresh:hover:not(:disabled) {
+  background: transparent;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.chapter-refresh:disabled {
+  background: transparent;
+  color: var(--color-ink-2);
+  cursor: progress;
+  opacity: 0.75;
+}
 .update-status { display: block; margin-top: var(--space-1); font-size: var(--text-xs); color: var(--color-ink-2); }
 .update-status--up_to_date { color: var(--color-success); }
 .update-status--missing_chapters { color: var(--color-warning); }
