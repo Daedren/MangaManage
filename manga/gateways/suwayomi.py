@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import math
+import re
 import threading
 import time
 import urllib.error
@@ -19,6 +20,17 @@ PAGE_SIZE = 100
 MAX_PAGES = 1000
 TITLE_CACHE_SIZE = 256
 DOWNLOAD_REQUEST_TIMEOUT_SECONDS = 60
+
+
+def _suwayomiFilename(title):
+    """Mirror Suwayomi SafePath.buildValidFilename for download folder names."""
+    title = title.strip(". ")
+    if not title:
+        return "(invalid)"
+    title = re.sub(r'[\x00-\x1f\x7f"*/:<>?\\|]', "_", title)
+    # SafePath limits names to 240 UTF-8 bytes without splitting a code point.
+    return title.encode("utf-8")[:240].decode("utf-8", errors="ignore")
+
 
 # fetchChapters is supported by older Suwayomi versions as well as current ones.
 FETCH_CHAPTERS_MUTATION = """
@@ -259,7 +271,7 @@ class SuwayomiGateway:
         return payload["data"]
 
     def getAnilistIdForSeries(self, series: str) -> Optional[str]:
-        """Resolve only unambiguous normalized titles; failures allow AniList fallback."""
+        """Resolve unambiguous titles or download folder names; allow AniList fallback."""
         title = " ".join(series.split()).casefold()
         if not self.base_url or not title:
             return None
@@ -292,8 +304,9 @@ class SuwayomiGateway:
         anilist_ids = set()
         seen_ids = set()
         offset = 0
-        # Wildcards between words tolerate whitespace differences upstream. The
-        # normalized exact comparison below rejects all broader SQL LIKE matches.
+        # Wildcards between words tolerate whitespace differences upstream. SQL
+        # LIKE's '_' also matches characters replaced by SafePath in folder names.
+        # Exact title/filename comparisons below reject broader LIKE matches.
         pattern = "%" + "%".join(title.split()) + "%"
         for _ in range(MAX_PAGES):
             request = urllib.request.Request(
@@ -320,7 +333,9 @@ class SuwayomiGateway:
                 candidate_title = manga["title"]
                 if not isinstance(candidate_title, str) or not candidate_title.strip():
                     raise ValueError("Invalid Suwayomi manga title")
-                if " ".join(candidate_title.split()).casefold() != title:
+                normalized_title = " ".join(candidate_title.split()).casefold()
+                normalized_filename = " ".join(_suwayomiFilename(candidate_title).split()).casefold()
+                if title not in (normalized_title, normalized_filename):
                     continue
                 records = manga["trackRecords"]["nodes"]
                 if not isinstance(records, list):
