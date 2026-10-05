@@ -45,6 +45,92 @@ const run = (status = 'running', id = 'a'.repeat(32)) => ({
 });
 const settle = () => new Promise(setImmediate);
 
+test('series problems check all or individually and merge only the checked types', async (t) => {
+  const gap = { type: 'consecutive_gap', before: 5, after: 8 };
+  const lag = { type: 'mangaupdates_lag', after: 8, through: 10 };
+  let calls = 0;
+  t.mock.method(axios, 'get', async (url, options) => {
+    assert.match(url, /\/database\/series\/42\/problems$/);
+    calls++;
+    assert.equal(options.params.toString(), calls === 1 ? '' : 'checks=mangaupdates_lag');
+    return { data: calls === 1 ? {
+      problems: [gap, lag],
+      checks: [{ type: 'consecutive_gap', status: 'checked', message: null },
+        { type: 'mangaupdates_lag', status: 'checked', message: null }],
+    } : { problems: [], checks: [{ type: 'mangaupdates_lag', status: 'checked', message: null }] } };
+  });
+  const store = useSeriesStore();
+  await store.fetchSeriesProblems(42);
+  assert.deepEqual(store.seriesProblems[42].data.problems, [gap, lag]);
+  await store.fetchSeriesProblems(42, ['mangaupdates_lag']);
+  assert.deepEqual(store.seriesProblems[42].data.problems, [gap]);
+  assert.equal(store.seriesProblems[42].data.checks.length, 2);
+});
+
+test('series problem checks prevent duplicate requests and retain unavailable status', async (t) => {
+  let resolve;
+  let calls = 0;
+  t.mock.method(axios, 'get', () => {
+    calls++;
+    return new Promise(done => { resolve = done; });
+  });
+  const store = useSeriesStore();
+  const pending = store.fetchSeriesProblems(42);
+  await store.fetchSeriesProblems(42, ['tracker_gap']);
+  assert.equal(calls, 1);
+  resolve({ data: { problems: [], checks: [{ type: 'tracker_gap', status: 'unavailable', message: 'No progress.' }] } });
+  await pending;
+  assert.equal(store.seriesProblems[42].loading, false);
+  assert.equal(store.seriesProblems[42].data.checks[0].status, 'unavailable');
+});
+
+test('problem download sends the finding once and keeps queue feedback', async (t) => {
+  const problem = { type: 'mangaupdates_lag', after: 8, through: 10.5 };
+  const result = { status: 'queued', queued_chapters: [9, 10, 10.5], already_downloaded: [], already_queued: [], warnings: [] };
+  let resolve;
+  let calls = 0;
+  t.mock.method(axios, 'post', (url, body) => {
+    calls++;
+    assert.match(url, /\/database\/series\/42\/problems\/download$/);
+    assert.deepEqual(body, problem);
+    return new Promise(done => { resolve = done; });
+  });
+  const store = useSeriesStore();
+  const pending = store.downloadSeriesProblem(42, problem);
+  await store.downloadSeriesProblem(42, problem);
+  assert.equal(calls, 1);
+  resolve({ data: result });
+  await pending;
+  assert.deepEqual(store.problemDownloads['42:mangaupdates:8:10.5'].result, result);
+});
+
+test('stale problem download refreshes only its individual check without retrying the mutation', async (t) => {
+  const problem = { type: 'mangaupdates_lag', after: 8, through: 10 };
+  let posts = 0;
+  t.mock.method(axios, 'post', async () => {
+    posts++;
+    throw { isAxiosError: true, response: { status: 409, data: { detail: 'Problem changed.' } } };
+  });
+  t.mock.method(axios, 'get', async (_url, options) => {
+    assert.equal(options.params.toString(), 'checks=mangaupdates_lag');
+    return { data: { problems: [], checks: [{ type: 'mangaupdates_lag', status: 'checked', message: null }] } };
+  });
+  const store = useSeriesStore();
+  await store.downloadSeriesProblem(42, problem);
+  assert.equal(posts, 1);
+  assert.equal(store.problemDownloads['42:mangaupdates:8:10'].error, 'Problem changed.');
+  assert.equal(store.seriesProblems[42].notice, 'Problem changed.');
+  assert.deepEqual(store.seriesProblems[42].data.problems, []);
+});
+
+test('series problems check failure is explicit and can be retried', async (t) => {
+  t.mock.method(axios, 'get', async () => { throw new Error('Unavailable'); });
+  const store = useSeriesStore();
+  await store.fetchSeriesProblems(42);
+  assert.match(store.seriesProblems[42].error, /Unable to check/);
+  assert.equal(store.seriesProblems[42].loading, false);
+});
+
 test('migration suggestions send only original entry and title and preserve ranked candidates', async (t) => {
   const result = {
     candidates: [{ manga_id: 2, source_id: '9007199254740995', source_name: 'English source',

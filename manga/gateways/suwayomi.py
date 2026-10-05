@@ -128,6 +128,10 @@ class SuwayomiGateway:
         Serialize actions so simultaneous/repeated clicks see the updated queue.
         Never start the global downloader or modify tracking/quarantine state.
         """
+        return self.queueChapterRangeDownloads(anilist_id, lower, upper)
+
+    def queueChapterRangeDownloads(self, anilist_id: int, lower: float, upper: float, *, include_upper=False):
+        """Queue lower < chapter < upper, or <= upper for a release catch-up."""
         if not self.base_url:
             raise SuwayomiDownloadError("Suwayomi is not configured. Configure it in settings.ini first.")
         if (not math.isfinite(lower) or not math.isfinite(upper)
@@ -138,7 +142,7 @@ class SuwayomiGateway:
                 # A mutating action must not trust stale library/tracking matches.
                 with self._lock:
                     sources = self._loadLibrary().get(anilist_id, [])
-                return self._queueGapFromSources(sources, lower, upper)
+                return self._queueGapFromSources(sources, lower, upper, include_upper=include_upper)
             except SuwayomiDownloadError:
                 raise
             except Exception as error:
@@ -148,7 +152,7 @@ class SuwayomiGateway:
                     "Check the connection and credentials, then try again."
                 ) from None
 
-    def _queueGapFromSources(self, sources, lower, upper):
+    def _queueGapFromSources(self, sources, lower, upper, *, include_upper=False):
         result = {
             "status": "no_source", "queued_chapters": [],
             "already_downloaded": [], "already_queued": [], "warnings": [],
@@ -182,7 +186,10 @@ class SuwayomiGateway:
                 "Unable to refresh chapters from any linked Suwayomi source. "
                 "Check the sources in Suwayomi, then try again."
             )
-        candidates = [chapter for chapter in chapters if lower < chapter["chapterNumber"] < upper]
+        candidates = [chapter for chapter in chapters
+                      if lower < chapter["chapterNumber"]
+                      and (chapter["chapterNumber"] <= upper if include_upper
+                           else chapter["chapterNumber"] < upper)]
         if not candidates:
             result["status"] = "no_matches"
             return result

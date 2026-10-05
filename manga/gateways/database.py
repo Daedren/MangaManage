@@ -137,6 +137,18 @@ class DatabaseGateway:
             )
             return [dict(row) for row in cur.fetchall()]
 
+    def getMangaUpdatesForAnilist(self, anilist_id: int):
+        """Read the cached release target for one series, without upstream requests."""
+        with self.__conn() as (_, cur):
+            cur.execute(
+                """SELECT mangaUpdatesId AS mangaupdates_id,
+                          latestChapter AS mangaupdates_latest_chapter
+                   FROM mangaupd WHERE anilistId = ?""",
+                (anilist_id,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row is not None else {}
+
     def getSeriesForAnilist(self, anilistId):
         with self.__conn() as (_, cur):
 

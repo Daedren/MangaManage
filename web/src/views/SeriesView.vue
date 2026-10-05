@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { gapDownloadKey, useSeriesStore } from '../stores/series';
-import QuarantineGapAction from '../components/QuarantineGapAction.vue';
+import { problemChecks, problemDownloadKey, useSeriesStore } from '../stores/series';
+import SeriesProblemAction from '../components/SeriesProblemAction.vue';
 import SeriesMigrationDialog from '../components/SeriesMigrationDialog.vue';
 import type { MangaUpdatesStatus, Series, SortColumn, SortDirection } from '../stores/series';
 
@@ -70,6 +70,12 @@ const refreshMangaUpdates = async (seriesId: number) => {
       limit: PAGE_SIZE,
       offset: (currentPage.value - 1) * PAGE_SIZE,
     });
+    for (const series of seriesStore.series) {
+      if (series.mangaupdates_id === seriesId && series.anilistId !== null
+        && expandedSeries.value.has(seriesKey(series))) {
+        await seriesStore.fetchSeriesProblems(series.anilistId, ['mangaupdates_lag']);
+      }
+    }
   } catch {
     mangaUpdatesRefreshErrors.value = {
       ...mangaUpdatesRefreshErrors.value,
@@ -124,17 +130,7 @@ const toggleDetails = (series: Series) => {
     expandedSeries.value.delete(key);
   } else {
     expandedSeries.value.add(key);
-    if (series.quarantined && series.anilistId !== null) void seriesStore.fetchQuarantineDetails(series.anilistId);
-  }
-};
-
-const detailsMessage = (status?: string) => {
-  switch (status) {
-    case 'no_gaps': return 'No current gaps detected. This series remains quarantined; it may have been quarantined manually or the original gap may now be resolved.';
-    case 'no_active_chapters': return 'Unable to determine the reason: no active chapters are available for this series.';
-    case 'tracker_unavailable': return 'Unable to determine the reason: tracker progress is unavailable.';
-    case 'not_quarantined': return 'This series is no longer quarantined. Refresh the list to update its status.';
-    default: return '';
+    if (series.anilistId !== null) void seriesStore.fetchSeriesProblems(series.anilistId);
   }
 };
 
@@ -315,25 +311,33 @@ onMounted(() => fetch(1));
                         {{ mangaUpdatesRefreshErrors[series.mangaupdates_id] }}
                       </p>
                     </section>
-                    <section v-if="series.quarantined && series.anilistId !== null" class="details-section"
-                      :aria-label="`Quarantine reasons for ${series.series}`" :aria-busy="seriesStore.quarantineDetails[series.anilistId]?.loading">
-                      <h3 class="details-heading">Quarantine reasons</h3>
-                      <p class="details-note">Current gap check; viewing this does not change quarantine status. Downloads are queued in Suwayomi, one copy per chapter across linked sources. Quarantine remains until chapters are imported and gaps are checked again.</p>
-                      <p v-if="seriesStore.quarantineDetails[series.anilistId]?.loading" role="status">Checking chapter gaps…</p>
-                      <template v-else-if="seriesStore.quarantineDetails[series.anilistId]?.error">
-                        <p role="alert">{{ seriesStore.quarantineDetails[series.anilistId]?.error }}</p>
-                        <button class="ghost" @click="seriesStore.fetchQuarantineDetails(series.anilistId)">Retry</button>
-                      </template>
-                      <template v-else>
-                        <ul v-if="seriesStore.quarantineDetails[series.anilistId]?.data?.reasons.length" class="reasons-list">
-                          <li v-for="reason in seriesStore.quarantineDetails[series.anilistId]?.data?.reasons" :key="gapDownloadKey(series.anilistId, reason)">
-                            <QuarantineGapAction :anilist-id="series.anilistId" :series="series.series" :reason="reason" />
+                    <section v-if="series.anilistId !== null" class="details-section"
+                      :aria-label="`Problems for ${series.series}`" :aria-busy="seriesStore.seriesProblems[series.anilistId]?.loading">
+                      <h3 class="details-heading">Problems</h3>
+                      <p class="details-note">Read-only checks for this series, regardless of quarantine status. Downloads queue one copy per chapter across linked Suwayomi sources. Import chapters and check again to resolve findings; quarantine status is unchanged.</p>
+                      <div class="problem-checks">
+                        <button type="button" class="ghost" :disabled="seriesStore.seriesProblems[series.anilistId]?.loading"
+                          @click="seriesStore.fetchSeriesProblems(series.anilistId)">Check all</button>
+                        <button v-for="check in problemChecks" :key="check.type" type="button" class="ghost"
+                          :disabled="seriesStore.seriesProblems[series.anilistId]?.loading"
+                          @click="seriesStore.fetchSeriesProblems(series.anilistId, [check.type])">Check {{ check.type === 'mangaupdates_lag' ? check.label : check.label.toLowerCase() }}</button>
+                      </div>
+                      <p v-if="seriesStore.seriesProblems[series.anilistId]?.loading" role="status">Checking series problems…</p>
+                      <p v-if="seriesStore.seriesProblems[series.anilistId]?.error" role="alert">{{ seriesStore.seriesProblems[series.anilistId]?.error }}</p>
+                      <p v-if="seriesStore.seriesProblems[series.anilistId]?.notice" role="status">{{ seriesStore.seriesProblems[series.anilistId]?.notice }}</p>
+                      <template v-if="!seriesStore.seriesProblems[series.anilistId]?.loading && !seriesStore.seriesProblems[series.anilistId]?.error">
+                        <ul v-if="seriesStore.seriesProblems[series.anilistId]?.data?.problems.length" class="reasons-list">
+                          <li v-for="problem in seriesStore.seriesProblems[series.anilistId]?.data?.problems" :key="problemDownloadKey(series.anilistId, problem)">
+                            <SeriesProblemAction :anilist-id="series.anilistId" :series="series.series" :problem="problem" />
                           </li>
                         </ul>
-                        <p v-else>{{ detailsMessage(seriesStore.quarantineDetails[series.anilistId]?.data?.status) }}</p>
+                        <p v-else-if="seriesStore.seriesProblems[series.anilistId]?.data?.checks.every(check => check.status === 'checked')">No problems found by the completed checks.</p>
+                        <p v-for="check in seriesStore.seriesProblems[series.anilistId]?.data?.checks.filter(check => check.status !== 'checked')"
+                          :key="check.type" class="details-note">{{ problemChecks.find(item => item.type === check.type)?.label }}: {{ check.message }}</p>
                       </template>
                     </section>
-                    <p v-else class="details-note">{{ series.quarantined ? 'No AniList ID assigned; quarantine reasons cannot be checked.' : 'This series is not quarantined.' }}</p>
+                    <p v-else class="details-note">No AniList ID assigned; series problems cannot be checked.</p>
+                    <p class="details-note">{{ series.quarantined ? 'This series is quarantined. If no current gaps remain, run the missing-chapter task to update quarantine; it may also have been quarantined manually.' : 'This series is not quarantined.' }}</p>
                   </section>
                 </td>
               </tr>
@@ -388,6 +392,7 @@ onMounted(() => fetch(1));
 }
 
 .filter-field input { width: 100%; }
+.problem-checks { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
 .filter-field--status { flex: 0 1 200px; }
 .filter-field select { width: 100%; }
 .filter-field input:hover { border-color: var(--color-ink-3); }

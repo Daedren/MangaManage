@@ -77,6 +77,23 @@ export type SortDirection = 'asc' | 'desc';
 export type QuarantineReason =
     | { type: 'tracker_gap'; last_read: number; first_stored: number }
     | { type: 'consecutive_gap'; before: number; after: number };
+export type SeriesProblem = QuarantineReason | { type: 'mangaupdates_lag'; after: number; through: number };
+export type ProblemCheck = SeriesProblem['type'];
+export const problemChecks: { type: ProblemCheck; label: string }[] = [
+    { type: 'tracker_gap', label: 'Tracker gap' },
+    { type: 'consecutive_gap', label: 'Consecutive gaps' },
+    { type: 'mangaupdates_lag', label: 'MangaUpdates lag' },
+];
+interface ProblemsReport {
+    problems: SeriesProblem[];
+    checks: { type: ProblemCheck; status: 'checked' | 'unavailable' | 'error'; message: string | null }[];
+}
+interface ProblemsState {
+    loading: boolean;
+    error: string;
+    notice?: string;
+    data?: ProblemsReport;
+}
 interface QuarantineDetails {
     quarantined: boolean;
     status: 'gaps_found' | 'no_gaps' | 'no_active_chapters' | 'tracker_unavailable' | 'not_quarantined';
@@ -104,6 +121,8 @@ interface GapDownloadState {
 export const gapDownloadKey = (id: number, reason: QuarantineReason) => reason.type === 'tracker_gap'
     ? `${id}:tracker:${reason.last_read}:${reason.first_stored}`
     : `${id}:consecutive:${reason.before}:${reason.after}`;
+export const problemDownloadKey = (id: number, problem: SeriesProblem) => problem.type === 'mangaupdates_lag'
+    ? `${id}:mangaupdates:${problem.after}:${problem.through}` : gapDownloadKey(id, problem);
 
 interface SeriesResponse {
     series: Series[];
@@ -129,6 +148,54 @@ export const useSeriesStore = defineStore('series', () => {
     const error = ref('');
     const quarantineDetails = ref<Record<number, DetailsState>>({});
     const gapDownloads = ref<Record<string, GapDownloadState>>({});
+    const seriesProblems = ref<Record<number, ProblemsState>>({});
+    const problemDownloads = ref<Record<string, GapDownloadState>>({});
+
+    const fetchSeriesProblems = async (id: number, checks?: ProblemCheck[]) => {
+        const previous = seriesProblems.value[id];
+        if (previous?.loading) return;
+        seriesProblems.value[id] = { ...previous, loading: true, error: '', notice: '' };
+        try {
+            // Explicit serialization preserves repeated query parameters in FastAPI.
+            const params = new URLSearchParams();
+            checks?.forEach(check => params.append('checks', check));
+            const response = await axios.get<ProblemsReport>(
+                `${config.apiBaseUrl}/database/series/${id}/problems`, { params },
+            );
+            const data = checks && previous?.data ? {
+                problems: [...previous.data.problems.filter(problem => !checks.includes(problem.type)), ...response.data.problems],
+                checks: [...previous.data.checks.filter(check => !checks.includes(check.type)), ...response.data.checks],
+            } : response.data;
+            const checkOrder = (type: ProblemCheck) => problemChecks.findIndex(check => check.type === type);
+            data.problems.sort((a, b) => checkOrder(a.type) - checkOrder(b.type));
+            data.checks.sort((a, b) => checkOrder(a.type) - checkOrder(b.type));
+            seriesProblems.value[id] = { loading: false, error: '', data };
+        } catch {
+            seriesProblems.value[id] = { ...previous, loading: false, error: 'Unable to check series problems. Please try again.' };
+        }
+    };
+
+    const downloadSeriesProblem = async (id: number, problem: SeriesProblem) => {
+        const key = problemDownloadKey(id, problem);
+        if (problemDownloads.value[key]?.loading || seriesProblems.value[id]?.loading) return;
+        problemDownloads.value[key] = { loading: true, error: '' };
+        try {
+            const response = await axios.post<GapDownloadResult>(
+                `${config.apiBaseUrl}/database/series/${id}/problems/download`, problem,
+            );
+            problemDownloads.value[key] = { loading: false, error: '', result: response.data };
+        } catch (caughtError) {
+            const detail = axios.isAxiosError(caughtError) ? caughtError.response?.data?.detail : undefined;
+            problemDownloads.value[key] = {
+                loading: false, error: typeof detail === 'string' ? detail : 'Unable to queue missing chapters. Please try again.',
+            };
+            if (axios.isAxiosError(caughtError) && caughtError.response?.status === 409) {
+                await fetchSeriesProblems(id, [problem.type]);
+                const checked = seriesProblems.value[id];
+                if (checked) checked.notice = problemDownloads.value[key]!.error;
+            }
+        }
+    };
 
     const fetchMigrationContext = async (id: number, originalMangaId: number) => {
         const response = await axios.get<MigrationContext>(`${config.apiBaseUrl}/database/series/${id}/migration`, {
@@ -242,6 +309,7 @@ export const useSeriesStore = defineStore('series', () => {
     return {
         series, total, isLoading, error, fetchSeries, quarantineDetails,
         fetchQuarantineDetails, refreshMangaUpdatesChapter, gapDownloads, downloadQuarantineGap,
+        seriesProblems, fetchSeriesProblems, problemDownloads, downloadSeriesProblem,
         fetchMigrationContext, searchMigration, suggestMigration, previewMigration, migrateSeries,
     };
 });

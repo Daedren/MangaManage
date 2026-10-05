@@ -14,6 +14,7 @@ from cross.last_run_logs import CaptureBusy, capture_last_run_logs, get_last_run
 from API.task_runs import TaskRuns
 from API.log_stream import follow_logs, read_log
 from manga.missingChapters import CheckGapsInChapters
+from manga.seriesProblems import SeriesProblems, SeriesProblemError, mangaUpdatesStatus
 from manga.gateways.utils.exceptions import AnilistRequestException, TokenRefreshException
 from manga.gateways.suwayomi import SuwayomiDownloadError
 from manga.suwayomiMigration import SuwayomiMigrationError
@@ -55,6 +56,19 @@ class ConsecutiveGapRequest(BaseModel):
 
 
 GapDownloadRequest = Annotated[TrackerGapRequest | ConsecutiveGapRequest, Body(discriminator="type")]
+
+
+class MangaUpdatesLagRequest(BaseModel):
+    type: Literal["mangaupdates_lag"]
+    after: float = Field(ge=0, allow_inf_nan=False)
+    through: float = Field(gt=0, allow_inf_nan=False)
+
+
+ProblemDownloadRequest = Annotated[
+    TrackerGapRequest | ConsecutiveGapRequest | MangaUpdatesLagRequest,
+    Body(discriminator="type"),
+]
+ProblemCheck = Literal["tracker_gap", "consecutive_gap", "mangaupdates_lag"]
 
 
 class MigrationSuggestRequest(BaseModel):
@@ -225,34 +239,9 @@ def get_all_series(
             get_all_read_progress() if needs_tracker_data else (None, None, None)
         )
         for item in series:
-            latest = item.get("mangaupdates_latest_chapter")
-            stored = item.get("latest_stored_chapter") or 0
             last_read = progress.get(item["anilistId"]) if progress is not None else None
             item["anilist_last_read"] = last_read
-            reason = None
-            if latest is None:
-                status = "unavailable"
-                if item["anilistId"] is None:
-                    reason = "No AniList ID assigned; MangaUpdates cannot be linked."
-                elif item.get("mangaupdates_id") is None:
-                    reason = "No MangaUpdates ID linked to this series."
-                else:
-                    reason = "MangaUpdates ID is linked, but no latest chapter has been cached."
-            elif stored >= latest or (last_read is not None and last_read >= latest):
-                status = "up_to_date"
-            elif item["anilistId"] is None:
-                status = "unknown"
-                reason = "Stored chapters are behind; no AniList ID assigned to check read progress."
-            elif progress is None:
-                status = "unknown"
-                reason = progress_error
-            elif item["anilistId"] in progress and last_read is None:
-                status = "unknown"
-                reason = "AniList returned no read progress for this series."
-            else:
-                status = "missing_chapters"
-                if item["anilistId"] not in progress:
-                    reason = "Stored chapters are behind; this series is not on your AniList list."
+            status, reason = mangaUpdatesStatus(item, progress, progress_error)
             item["mangaupdates_status"] = status
             item["mangaupdates_status_reason"] = reason
         excluded_ids = {
@@ -284,6 +273,39 @@ def get_all_series(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def series_problem_checker():
+    return SeriesProblems(database_gateway, filesystem_gateway, anilist_gateway, suwayomi_gateway)
+
+
+@app.get("/database/series/{anilist_id}/problems")
+def get_series_problems(
+    anilist_id: Annotated[int, Path(ge=1)],
+    checks: Annotated[list[ProblemCheck] | None, Query()] = None,
+):
+    """Read-only report; select individual checks with repeated checks parameters."""
+    try:
+        return series_problem_checker().checkSeries(anilist_id, checks)
+    except Exception:
+        logging.getLogger(__name__).warning("Unable to check series problems")
+        raise HTTPException(status_code=500, detail="Unable to check this series. Try again or check server logs.") from None
+
+
+@app.post("/database/series/{anilist_id}/problems/download")
+def download_series_problem(
+    anilist_id: Annotated[int, Path(ge=1)], request: ProblemDownloadRequest,
+):
+    """Revalidate one problem and queue its chapter range in linked Suwayomi sources."""
+    try:
+        return series_problem_checker().resolveSeriesProblem(anilist_id, request.model_dump())
+    except SeriesProblemError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from None
+    except SuwayomiDownloadError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from None
+    except Exception:
+        logging.getLogger(__name__).warning("Unable to queue downloads for a series problem")
+        raise HTTPException(status_code=500, detail="Unable to check this problem. Try again or check server logs.") from None
+
+
 @app.get("/database/series/{anilist_id}/quarantine-details")
 def get_series_quarantine_details(anilist_id: int):
     """Explain current gaps on demand; never run the mutating quarantine workflow."""
@@ -301,22 +323,9 @@ def get_series_quarantine_details(anilist_id: int):
 def download_series_quarantine_gap(anilist_id: int, request: GapDownloadRequest):
     """Revalidate one current gap, then queue available chapters in Suwayomi."""
     try:
-        if anilist_id not in filesystem_gateway.getQuarantinedSeries():
-            raise HTTPException(status_code=409, detail="This series is no longer quarantined. Refresh its details.")
-        anilist_gateway.clearCache()
-        checker = CheckGapsInChapters(database_gateway, filesystem_gateway, anilist_gateway)
-        details = checker.getQuarantineDetails(anilist_id)
-        if details["status"] == "tracker_unavailable":
-            raise HTTPException(status_code=503, detail="AniList progress is unavailable. Try again later.")
-        if request.model_dump() not in details["reasons"]:
-            raise HTTPException(status_code=409, detail="This gap has changed or is no longer present. Refresh its details.")
-        if isinstance(request, TrackerGapRequest):
-            lower, upper = request.last_read, request.first_stored
-        else:
-            lower, upper = request.before, request.after
-        return suwayomi_gateway.queueGapDownloads(anilist_id, lower, upper)
-    except HTTPException:
-        raise
+        return series_problem_checker().resolveQuarantineGap(anilist_id, request.model_dump())
+    except SeriesProblemError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from None
     except SuwayomiDownloadError as error:
         raise HTTPException(status_code=503, detail=str(error)) from None
     except Exception:

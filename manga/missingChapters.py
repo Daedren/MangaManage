@@ -86,8 +86,8 @@ class CheckGapsInChapters:
         """Read-only rules shared with the quarantine workflow (tracker gap takes priority)."""
         if not chapters:
             return []
-        gap = self.__gapExistsInTrackerProgress(tracker_id, title, progress, chapters)
-        return [gap] if gap else self.__checkConsecutive(tracker_id, title, chapters)
+        gap = self.checkTrackerGap(tracker_id, title, progress, chapters)
+        return [gap] if gap else self.checkConsecutiveGaps(tracker_id, title, chapters)
 
     def getQuarantineDetails(self, tracker_id: int):
         """Check just one series without moving files or changing quarantine state."""
@@ -121,7 +121,7 @@ class CheckGapsInChapters:
             self.filesystem.restoreQuarantinedArchive(anilistId)
         return
 
-    def __checkConsecutive(
+    def checkConsecutiveGaps(
         self, tracker_id: int, title: str, listToCheck: list,
     ) -> List[MissingConsecutiveChapter]:
         to_return = list()
@@ -137,11 +137,13 @@ class CheckGapsInChapters:
             lastChapter = chap
         return to_return
 
-    def __gapExistsInTrackerProgress(
+    def checkTrackerGap(
         self, trackerId: int, title: str, trackerProgress: int, chapters: list
     ) -> Optional[MissingTrackerChapter]:
         """Checks if the lowest chapter we have
         is right after the last one in the tracker"""
+        if not chapters:
+            return None
         gapExists = round(trackerProgress - min(chapters), 1) < -1.1
         if gapExists:
             return MissingTrackerChapter(trackerId, title, min(chapters), trackerProgress)
