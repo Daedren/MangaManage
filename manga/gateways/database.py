@@ -74,29 +74,33 @@ class DatabaseGateway:
         if sort_by not in columns or sort_direction not in ("asc", "desc"):
             raise ValueError("Invalid series sort")
         ids = sorted(set(quarantined_ids))
-        membership = f"anilist.anilistId IN ({','.join('?' for _ in ids)})" if ids else "0"
-        where = "WHERE series LIKE ?" if title else ""
+        membership = f"grouped.anilistId IN ({','.join('?' for _ in ids)})" if ids else "0"
+        # Match any alias without excluding other aliases' chapters from aggregates.
+        having = "HAVING MAX(manga.series LIKE ?) = 1" if title else ""
         params = ([f"%{title}%"] if title else []) + ids
         cte = f"""
             WITH grouped AS (
-                SELECT series, MAX(datetime(creation_date)) AS last_updated,
-                       MAX(CASE WHEN active = 1 THEN CAST(chapter AS REAL) END) AS latest_stored_chapter
-                FROM manga {where} GROUP BY series
+                SELECT MIN(manga.series) AS series, anilist.anilistId,
+                       MAX(datetime(manga.creation_date)) AS last_updated,
+                       MAX(CASE WHEN manga.active = 1 THEN CAST(manga.chapter AS REAL) END) AS latest_stored_chapter
+                FROM manga INNER JOIN anilist ON manga.series = anilist.series
+                WHERE anilist.anilistId IS NOT NULL
+                GROUP BY anilist.anilistId {having}
             ), detailed AS (
-                SELECT grouped.series, anilist.anilistId, grouped.last_updated,
+                SELECT grouped.series, grouped.anilistId, grouped.last_updated,
                        grouped.latest_stored_chapter, mangaupd.mangaUpdatesId AS mangaupdates_id,
                        mangaupd.latestChapter AS mangaupdates_latest_chapter,
                        COALESCE({membership}, 0) AS quarantined
-                FROM grouped LEFT JOIN anilist ON grouped.series = anilist.series
-                LEFT JOIN mangaupd ON anilist.anilistId = mangaupd.anilistId
+                FROM grouped
+                LEFT JOIN mangaupd ON grouped.anilistId = mangaupd.anilistId
             )
         """
         status_where = "WHERE quarantined = ?" if quarantined is not None else ""
         if quarantined is not None:
             params.append(int(quarantined))
-        # Unknown dates always come last; series provides stable pagination for ties.
+        # Unknown dates always come last; AniList ID breaks ties between groups.
         null_order = "last_updated IS NULL ASC," if sort_by == "last_updated" else ""
-        order = f"{null_order} {columns[sort_by]} {sort_direction.upper()}, series COLLATE NOCASE ASC, series ASC"
+        order = f"{null_order} {columns[sort_by]} {sort_direction.upper()}, series COLLATE NOCASE ASC, series ASC, anilistId ASC"
         with self.__conn() as (_, cur):
             cur.execute(
                 f"{cte} SELECT COUNT(*) FROM detailed {status_where}",

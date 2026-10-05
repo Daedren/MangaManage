@@ -2,7 +2,8 @@
 import { computed, onMounted, ref } from 'vue';
 import { gapDownloadKey, useSeriesStore } from '../stores/series';
 import QuarantineGapAction from '../components/QuarantineGapAction.vue';
-import type { MangaUpdatesStatus, SortColumn, SortDirection } from '../stores/series';
+import SeriesMigrationDialog from '../components/SeriesMigrationDialog.vue';
+import type { MangaUpdatesStatus, Series, SortColumn, SortDirection } from '../stores/series';
 
 const seriesStore = useSeriesStore();
 const PAGE_SIZE = 50;
@@ -15,6 +16,7 @@ const appliedMangaUpdatesStatus = ref<'all' | MangaUpdatesStatus>('all');
 const sortBy = ref<SortColumn>('last_updated');
 const sortDirection = ref<SortDirection>('desc');
 const expandedSeries = ref(new Set<string>());
+const migration = ref<{ anilistId: number; originalMangaId: number; series: string } | null>(null);
 const refreshingMangaUpdates = ref(new Set<number>());
 const mangaUpdatesRefreshErrors = ref<Record<number, string>>({});
 const currentPage = ref(1);
@@ -112,12 +114,16 @@ const updateStatusLabel = (status: string) => {
   }
 };
 
-const toggleDetails = (series: string, id: number) => {
-  if (expandedSeries.value.has(series)) {
-    expandedSeries.value.delete(series);
+const seriesKey = (series: Series) => series.anilistId !== null
+  ? `anilist-${series.anilistId}` : `name-${series.series}`;
+
+const toggleDetails = (series: Series) => {
+  const key = seriesKey(series);
+  if (expandedSeries.value.has(key)) {
+    expandedSeries.value.delete(key);
   } else {
-    expandedSeries.value.add(series);
-    void seriesStore.fetchQuarantineDetails(id);
+    expandedSeries.value.add(key);
+    if (series.quarantined && series.anilistId !== null) void seriesStore.fetchQuarantineDetails(series.anilistId);
   }
 };
 
@@ -205,9 +211,17 @@ onMounted(() => fetch(1));
             </tr>
           </thead>
           <tbody>
-            <template v-for="(series, index) in seriesStore.series" :key="series.series">
+            <template v-for="series in seriesStore.series" :key="seriesKey(series)">
               <tr>
-                <td class="col-series">{{ series.series }}</td>
+                <td class="col-series">
+                  <button class="series-details-toggle" :aria-expanded="expandedSeries.has(seriesKey(series))"
+                    :aria-controls="`series-details-${seriesKey(series)}`"
+                    :aria-label="`${expandedSeries.has(seriesKey(series)) ? 'Hide' : 'Show'} series details for ${series.series}`"
+                    @click="toggleDetails(series)">
+                    <span aria-hidden="true">{{ expandedSeries.has(seriesKey(series)) ? '▾' : '▸' }}</span>
+                    <span>{{ series.series }}</span>
+                  </button>
+                </td>
                 <td class="col-source">
                   <ul v-if="series.suwayomi_sources.length" class="source-links">
                     <li v-for="source in series.suwayomi_sources" :key="source.manga_id">
@@ -271,34 +285,45 @@ onMounted(() => fetch(1));
                   </span>
                 </td>
                 <td class="col-status">
-                  <button v-if="series.quarantined && series.anilistId !== null" class="details-toggle ghost"
-                    :aria-expanded="expandedSeries.has(series.series)"
-                    :aria-controls="`quarantine-details-${index}`"
-                    :aria-label="`${expandedSeries.has(series.series) ? 'Hide' : 'Show'} quarantine reasons for ${series.series}`"
-                    @click="toggleDetails(series.series, series.anilistId)">
-                    <span aria-hidden="true">{{ expandedSeries.has(series.series) ? '▾' : '▸' }}</span> Yes
-                  </button>
-                  <span v-else>{{ series.quarantined ? 'Yes' : 'No' }}</span>
+                  <span>{{ series.quarantined ? 'Yes' : 'No' }}</span>
                 </td>
               </tr>
-              <tr v-if="expandedSeries.has(series.series) && series.anilistId !== null" class="details-row">
-                <td :id="`quarantine-details-${index}`" colspan="7">
-                  <section :aria-label="`Quarantine reasons for ${series.series}`" :aria-busy="seriesStore.quarantineDetails[series.anilistId]?.loading">
-                    <h2 class="details-heading">Quarantine reasons</h2>
-                    <p class="details-note">Current gap check; viewing this does not change quarantine status. Downloads are queued in Suwayomi, one copy per chapter across linked sources. Quarantine remains until chapters are imported and gaps are checked again.</p>
-                    <p v-if="seriesStore.quarantineDetails[series.anilistId]?.loading" role="status">Checking chapter gaps…</p>
-                    <template v-else-if="seriesStore.quarantineDetails[series.anilistId]?.error">
-                      <p role="alert">{{ seriesStore.quarantineDetails[series.anilistId]?.error }}</p>
-                      <button class="ghost" @click="seriesStore.fetchQuarantineDetails(series.anilistId)">Retry</button>
-                    </template>
-                    <template v-else>
-                      <ul v-if="seriesStore.quarantineDetails[series.anilistId]?.data?.reasons.length" class="reasons-list">
-                        <li v-for="reason in seriesStore.quarantineDetails[series.anilistId]?.data?.reasons" :key="gapDownloadKey(series.anilistId, reason)">
-                          <QuarantineGapAction :anilist-id="series.anilistId" :series="series.series" :reason="reason" />
+              <tr v-if="expandedSeries.has(seriesKey(series))" class="details-row">
+                <td :id="`series-details-${seriesKey(series)}`" colspan="7">
+                  <section class="series-detail-content" :aria-label="`Series details for ${series.series}`">
+                    <h2 class="details-heading">Series details</h2>
+                    <section class="details-section" aria-label="Suwayomi sources and migration">
+                      <h3 class="details-heading">Suwayomi sources</h3>
+                      <p class="details-note">Migrate an entry to another installed source in Suwayomi. Existing downloads and local archives are kept; quarantine status is unchanged.</p>
+                      <ul v-if="series.suwayomi_sources.length" class="detail-sources">
+                        <li v-for="source in series.suwayomi_sources" :key="source.manga_id">
+                          <a :href="source.url" target="_blank" rel="noopener noreferrer">{{ source.name }}</a>
+                          <button v-if="series.anilistId !== null" type="button" class="ghost"
+                            :aria-label="`Migrate ${series.series} from ${source.name}`"
+                            @click="migration = { anilistId: series.anilistId, originalMangaId: source.manga_id, series: series.series }">Migrate source</button>
                         </li>
                       </ul>
-                      <p v-else>{{ detailsMessage(seriesStore.quarantineDetails[series.anilistId]?.data?.status) }}</p>
-                    </template>
+                      <p v-if="series.suwayomi_status_reason || !series.suwayomi_sources.length" class="details-note">{{ series.suwayomi_status_reason || 'No linked Suwayomi sources. Configure Suwayomi and link this manga to AniList in its library first.' }}</p>
+                    </section>
+                    <section v-if="series.quarantined && series.anilistId !== null" class="details-section"
+                      :aria-label="`Quarantine reasons for ${series.series}`" :aria-busy="seriesStore.quarantineDetails[series.anilistId]?.loading">
+                      <h3 class="details-heading">Quarantine reasons</h3>
+                      <p class="details-note">Current gap check; viewing this does not change quarantine status. Downloads are queued in Suwayomi, one copy per chapter across linked sources. Quarantine remains until chapters are imported and gaps are checked again.</p>
+                      <p v-if="seriesStore.quarantineDetails[series.anilistId]?.loading" role="status">Checking chapter gaps…</p>
+                      <template v-else-if="seriesStore.quarantineDetails[series.anilistId]?.error">
+                        <p role="alert">{{ seriesStore.quarantineDetails[series.anilistId]?.error }}</p>
+                        <button class="ghost" @click="seriesStore.fetchQuarantineDetails(series.anilistId)">Retry</button>
+                      </template>
+                      <template v-else>
+                        <ul v-if="seriesStore.quarantineDetails[series.anilistId]?.data?.reasons.length" class="reasons-list">
+                          <li v-for="reason in seriesStore.quarantineDetails[series.anilistId]?.data?.reasons" :key="gapDownloadKey(series.anilistId, reason)">
+                            <QuarantineGapAction :anilist-id="series.anilistId" :series="series.series" :reason="reason" />
+                          </li>
+                        </ul>
+                        <p v-else>{{ detailsMessage(seriesStore.quarantineDetails[series.anilistId]?.data?.status) }}</p>
+                      </template>
+                    </section>
+                    <p v-else class="details-note">{{ series.quarantined ? 'No AniList ID assigned; quarantine reasons cannot be checked.' : 'This series is not quarantined.' }}</p>
                   </section>
                 </td>
               </tr>
@@ -313,12 +338,15 @@ onMounted(() => fetch(1));
         <button class="ghost" :disabled="currentPage === totalPages" @click="fetch(currentPage + 1)">Next →</button>
       </nav>
     </template>
+    <SeriesMigrationDialog v-if="migration" :anilist-id="migration.anilistId"
+      :original-manga-id="migration.originalMangaId" :series="migration.series"
+      @close="migration = null" @changed="fetch(currentPage)" />
   </main>
 </template>
 
 <style scoped>
 /* Hallmark · pre-emit critique: P4 H4 E4 S5 R5 V3
- * Existing app style preserved; browse-only series table.
+ * Existing app style preserved; general series details with explicit actions.
  */
 .page-header {
   margin-bottom: var(--space-6);
@@ -483,10 +511,18 @@ tbody tr:hover { background: var(--color-paper-3); }
   box-shadow: none;
 }
 .sort-button:hover { color: var(--color-accent); background: transparent; }
-.details-toggle { padding: var(--space-1) var(--space-2); }
+.series-details-toggle { display: flex; align-items: flex-start; gap: var(--space-1); padding: 0; background: transparent; border: 0; color: inherit; font: inherit; text-align: left; white-space: normal; }
+.series-details-toggle span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.series-details-toggle:hover { background: transparent; color: var(--color-accent); }
+.series-details-toggle:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .details-row, .details-row:hover { background: var(--color-paper-2); }
+.series-detail-content { max-width: min(100%, calc(100vw - var(--space-16))); }
 .details-heading { font-size: var(--text-sm); margin-bottom: var(--space-1); }
 .details-note { color: var(--color-ink-2); margin-bottom: var(--space-3); font-size: var(--text-xs); }
+.details-section { margin-top: var(--space-4); }
+.detail-sources { list-style: none; margin: 0; padding: 0; }
+.detail-sources li { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.detail-sources button { padding: var(--space-1) var(--space-2); }
 .reasons-list { margin: 0; padding-left: var(--space-5); list-style: disc; }
 .reasons-list li + li { margin-top: var(--space-1); }
 
@@ -505,7 +541,7 @@ button { white-space: nowrap; }
   .filter-field { flex-basis: auto; }
   .filter-field--status { flex: auto; }
   .sort-button { font-size: 10px; letter-spacing: 0.02em; overflow-wrap: normal; }
-  .details-toggle { min-height: 44px; }
+  .series-details-toggle, .detail-sources button { min-height: 44px; }
   .filter-bar button { align-self: flex-start; }
   th, td { padding: var(--space-3) var(--space-2); }
 }

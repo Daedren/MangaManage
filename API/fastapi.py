@@ -3,14 +3,15 @@ import datetime
 import http.client
 import logging
 from typing import Annotated, Literal
-from fastapi import Body, FastAPI, HTTPException, Query
+from fastapi import Body, FastAPI, HTTPException, Path, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from appContainer import ApplicationContainer
 from cross.last_run_logs import capture_last_run_logs, get_last_run_log_path
 from manga.missingChapters import CheckGapsInChapters
 from manga.gateways.utils.exceptions import AnilistRequestException, TokenRefreshException
 from manga.gateways.suwayomi import SuwayomiDownloadError
+from manga.suwayomiMigration import SuwayomiMigrationError
 
 # Load configuration
 config = configparser.ConfigParser(allow_no_value=True)
@@ -49,6 +50,33 @@ class ConsecutiveGapRequest(BaseModel):
 
 
 GapDownloadRequest = Annotated[TrackerGapRequest | ConsecutiveGapRequest, Body(discriminator="type")]
+
+
+class MigrationSearchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    original_manga_id: int = Field(ge=0, strict=True)
+    source_id: str = Field(pattern=r"^[0-9]+$", max_length=20, strict=True)
+    query: str = Field(min_length=1, max_length=300, strict=True)
+    page: int = Field(default=1, ge=1, le=1000, strict=True)
+
+
+class MigrationPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    original_manga_id: int = Field(ge=0, strict=True)
+    destination_manga_id: int = Field(ge=0, strict=True)
+    migrate_chapters: bool = Field(default=True, strict=True)
+    migrate_categories: bool = Field(default=True, strict=True)
+
+    def options(self):
+        return {
+            "migrate_chapters": self.migrate_chapters,
+            "migrate_categories": self.migrate_categories,
+        }
+
+
+class MigrationExecuteRequest(MigrationPreviewRequest):
+    preview_token: str = Field(min_length=1, max_length=100, strict=True)
+
 
 # Create FastAPI app
 app = FastAPI()
@@ -258,6 +286,59 @@ def download_series_quarantine_gap(anilist_id: int, request: GapDownloadRequest)
     except Exception:
         logging.getLogger(__name__).warning("Unable to queue downloads for a quarantine gap")
         raise HTTPException(status_code=500, detail="Unable to check this gap. Try again or check server logs.") from None
+
+
+def migration_response(action):
+    """All migration errors are sanitized, including malformed upstream data."""
+    try:
+        return action()
+    except SuwayomiMigrationError as error:
+        raise HTTPException(status_code=error.status_code, detail=str(error)) from None
+    except Exception:
+        logging.getLogger(__name__).warning("Unable to process Suwayomi migration data")
+        raise HTTPException(
+            status_code=503,
+            detail=("Unable to load valid migration data from Suwayomi. "
+                    "Check its connection and version, then try again."),
+        ) from None
+
+
+@app.get("/database/series/{anilist_id}/migration")
+def get_series_migration(
+    anilist_id: Annotated[int, Path(ge=1)],
+    original_manga_id: int = Query(ge=0),
+):
+    return migration_response(
+        lambda: suwayomi_gateway.migration.context(anilist_id, original_manga_id)
+    )
+
+
+@app.post("/database/series/{anilist_id}/migration/search")
+def search_series_migration(
+    anilist_id: Annotated[int, Path(ge=1)], request: MigrationSearchRequest,
+):
+    return migration_response(lambda: suwayomi_gateway.migration.search(
+        anilist_id, request.original_manga_id, request.source_id, request.query, request.page,
+    ))
+
+
+@app.post("/database/series/{anilist_id}/migration/preview")
+def preview_series_migration(
+    anilist_id: Annotated[int, Path(ge=1)], request: MigrationPreviewRequest,
+):
+    return migration_response(lambda: suwayomi_gateway.migration.preview(
+        anilist_id, request.original_manga_id, request.destination_manga_id, request.options(),
+    ))
+
+
+@app.post("/database/series/{anilist_id}/migration")
+def execute_series_migration(
+    anilist_id: Annotated[int, Path(ge=1)], request: MigrationExecuteRequest,
+):
+    return migration_response(lambda: suwayomi_gateway.migration.execute(
+        anilist_id, request.original_manga_id, request.destination_manga_id,
+        request.options(), request.preview_token,
+    ))
 
 
 @app.get("/logs")

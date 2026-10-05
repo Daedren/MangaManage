@@ -9,6 +9,7 @@ import urllib.request
 from collections import OrderedDict
 from typing import Optional
 from urllib.parse import urlsplit
+from manga.suwayomiMigration import SuwayomiMigration
 
 
 CACHE_TTL_SECONDS = 5 * 60
@@ -77,7 +78,7 @@ class SuwayomiDownloadError(Exception):
 
 
 class SuwayomiGateway:
-    """Suwayomi library lookups and explicit, on-demand gap downloads."""
+    """Suwayomi lookups, on-demand gap downloads and single-entry migration."""
 
     def __init__(self, base_url="", web_url="", username="", password="",
                  token="", transport=None, clock=None):
@@ -105,6 +106,18 @@ class SuwayomiGateway:
         self._has_snapshot = False
         self._title_cache = OrderedDict()
         self._title_retry_at = 0
+        # Migration and gap downloads share the same mutation lock.
+        self.migration = SuwayomiMigration(self)
+
+    def invalidateMigrationCaches(self):
+        """Discard stale matches even after an unconfirmed/partially applied mutation."""
+        with self._lock:
+            self._snapshot = {}
+            self._has_snapshot = False
+            self._next_refresh = 0
+            self._error = None
+            self._title_cache.clear()
+            self._title_retry_at = 0
 
     def queueGapDownloads(self, anilist_id: int, lower: float, upper: float):
         """Refresh linked sources and enqueue one copy per number inside the gap.
