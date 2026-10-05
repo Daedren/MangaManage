@@ -487,9 +487,11 @@ async def quarantine_series(anilist_id: str):
 async def get_latest_releases(series_id: int):
     """Get the latest chapter from MangaUpdates and cache it in the database."""
     try:
-        latest_chapter = mangaupd_gateway.getLatestChapterForId(series_id)
-        if latest_chapter is not None:
-            database_gateway.updateMangaUpdtLatestChapter(series_id, latest_chapter)
+        latest_chapter, manga_updates_url = mangaupd_gateway.getSeriesDetailsForId(series_id)
+        if latest_chapter is not None or manga_updates_url is not None:
+            database_gateway.updateMangaUpdtLatestChapter(
+                series_id, latest_chapter, manga_updates_url
+            )
         return {"series_id": series_id, "latest_chapter": latest_chapter}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

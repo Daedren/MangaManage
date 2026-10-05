@@ -52,13 +52,20 @@ class CheckForUpdates:
             latestInMangaUpd = dbInfo["latestChapter"] or 0
             if not dbInfo["mangaUpdatesId"]:
                 continue
-            if latestInMangaUpd > latestInDb and series.progress < latestInMangaUpd:
+            has_manga_updates_url = bool(dbInfo["mangaUpdatesUrl"])
+            if (has_manga_updates_url and latestInMangaUpd > latestInDb
+                    and series.progress < latestInMangaUpd):
                 self.__log_update(series, latestInDb, latestInMangaUpd)
                 continue
-            latestChapter = self.mangaUpdatesGateway.getLatestChapterForId(mangaUpdId)
+            latestChapter, mangaUpdatesUrl = (
+                self.mangaUpdatesGateway.getSeriesDetailsForId(mangaUpdId)
+            )
+            if latestChapter is not None or mangaUpdatesUrl is not None:
+                self.database.updateMangaUpdtLatestChapter(
+                    mangaUpdId, latestChapter, mangaUpdatesUrl
+                )
             if latestChapter is None:
                 continue
-            self.database.updateMangaUpdtLatestChapter(mangaUpdId, latestChapter)
             if latestChapter > latestInDb and series.progress < latestChapter:
                 self.__log_update(series, latestInDb, latestChapter)
     

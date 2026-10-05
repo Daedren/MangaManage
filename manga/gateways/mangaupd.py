@@ -7,6 +7,7 @@ import urllib.request
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import List, Optional
+from urllib.parse import urlsplit
 
 from cross.decorators import Logger
 
@@ -77,15 +78,25 @@ class MangaUpdatesGateway:
         return record["series_id"]
 
     def getLatestChapterForId(self, series_id: int) -> Optional[int]:
+        latest_chapter, _ = self.getSeriesDetailsForId(series_id)
+        return latest_chapter
+
+    def getSeriesDetailsForId(self, series_id: int) -> tuple[Optional[int], Optional[str]]:
         if type(series_id) is not int or series_id <= 0:
             raise ValueError("MangaUpdates series ID must be a positive integer")
         response = self._request(f"/series/{series_id}")
         chapter = response.get("latest_chapter")
-        if chapter is None:
-            return None
-        if type(chapter) is not int or chapter < 0:
+        if chapter is not None and (type(chapter) is not int or chapter < 0):
             raise ValueError("Invalid MangaUpdates latest_chapter value")
-        return chapter
+        url = response.get("url")
+        if url is not None:
+            parsed_url = urlsplit(url) if isinstance(url, str) else None
+            if (parsed_url is None or parsed_url.scheme != "https"
+                    or parsed_url.netloc != "www.mangaupdates.com"
+                    or not parsed_url.path.startswith("/series/")
+                    or parsed_url.query or parsed_url.fragment):
+                raise ValueError("Invalid MangaUpdates series URL")
+        return chapter, url
 
     def _request(self, path, payload=None):
         body = json.dumps(payload).encode("utf-8") if payload is not None else None

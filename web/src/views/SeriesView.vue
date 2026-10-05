@@ -109,6 +109,7 @@ const updateStatusLabel = (status: string) => {
   switch (status) {
     case 'up_to_date': return 'Up to date';
     case 'missing_chapters': return 'Missing chapters';
+    case 'unavailable': return 'Unavailable';
     case 'unknown': return 'Unknown';
     default: return '';
   }
@@ -187,7 +188,7 @@ onMounted(() => fetch(1));
       </p>
 
       <p v-if="seriesStore.series.length > 0" class="updates-note">
-        MangaUpdates chapters are cached; click a chapter number to refresh it, or use the MangaUpdates check on the Tasks page to refresh them all.
+        MangaUpdates chapters are cached; expand a series detail row to refresh its chapter, or use the MangaUpdates check on the Tasks page to refresh them all.
         Up to date means stored chapters or AniList last read have reached the cached chapter, not that there are no gaps.
       </p>
 
@@ -261,25 +262,17 @@ onMounted(() => fetch(1));
                 </td>
                 <td class="col-updates">
                   <template v-if="series.mangaupdates_latest_chapter !== null">
-                    <button
-                      v-if="series.mangaupdates_id !== null"
-                      class="chapter-refresh chapter-number"
-                      :disabled="refreshingMangaUpdates.has(series.mangaupdates_id)"
-                      :aria-label="`Refresh MangaUpdates chapter for ${series.series}`"
-                      :title="`Click to fetch the latest chapter for ${series.series}`"
-                      @click="refreshMangaUpdates(series.mangaupdates_id)"
-                    >
-                      {{ refreshingMangaUpdates.has(series.mangaupdates_id) ? 'Refreshing…' : series.mangaupdates_latest_chapter }}
-                    </button>
+                    <a v-if="series.mangaupdates_url" class="chapter-number mangaupdates-link"
+                      :href="series.mangaupdates_url" target="_blank" rel="noopener noreferrer"
+                      :aria-label="`Open ${series.series} on MangaUpdates`">
+                      {{ series.mangaupdates_latest_chapter }}
+                    </a>
                     <span v-else class="chapter-number">{{ series.mangaupdates_latest_chapter }}</span>
                     <span class="update-status" :class="`update-status--${series.mangaupdates_status}`">
                       {{ updateStatusLabel(series.mangaupdates_status) }}
                     </span>
                   </template>
                   <span v-else>N/A</span>
-                  <span v-if="series.mangaupdates_id !== null && mangaUpdatesRefreshErrors[series.mangaupdates_id]" class="update-reason" role="alert">
-                    {{ mangaUpdatesRefreshErrors[series.mangaupdates_id] }}
-                  </span>
                   <span v-if="series.mangaupdates_status_reason" class="update-reason">
                     {{ series.mangaupdates_status_reason }}
                   </span>
@@ -304,6 +297,23 @@ onMounted(() => fetch(1));
                         </li>
                       </ul>
                       <p v-if="series.suwayomi_status_reason || !series.suwayomi_sources.length" class="details-note">{{ series.suwayomi_status_reason || 'No linked Suwayomi sources. Configure Suwayomi and link this manga to AniList in its library first.' }}</p>
+                    </section>
+                    <section class="details-section" :aria-label="`MangaUpdates details for ${series.series}`">
+                      <h3 class="details-heading">MangaUpdates</h3>
+                      <p class="details-note">
+                        Latest chapter: {{ series.mangaupdates_latest_chapter ?? 'Not cached' }}
+                        <template v-if="series.mangaupdates_status"> · {{ updateStatusLabel(series.mangaupdates_status) }}</template>
+                      </p>
+                      <button v-if="series.mangaupdates_id !== null" type="button" class="ghost"
+                        :disabled="refreshingMangaUpdates.has(series.mangaupdates_id)"
+                        :aria-label="`Refresh MangaUpdates chapter for ${series.series}`"
+                        @click="refreshMangaUpdates(series.mangaupdates_id)">
+                        {{ refreshingMangaUpdates.has(series.mangaupdates_id) ? 'Refreshing…' : 'Refresh chapter' }}
+                      </button>
+                      <p v-else class="details-note">No MangaUpdates ID linked to this series.</p>
+                      <p v-if="series.mangaupdates_id !== null && mangaUpdatesRefreshErrors[series.mangaupdates_id]" class="update-reason" role="alert">
+                        {{ mangaUpdatesRefreshErrors[series.mangaupdates_id] }}
+                      </p>
                     </section>
                     <section v-if="series.quarantined && series.anilistId !== null" class="details-section"
                       :aria-label="`Quarantine reasons for ${series.series}`" :aria-busy="seriesStore.quarantineDetails[series.anilistId]?.loading">
@@ -473,27 +483,9 @@ tbody tr:hover { background: var(--color-paper-3); }
 .anilist-progress-link { color: inherit; text-decoration: none; }
 .anilist-progress-link:hover { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }
 .anilist-progress-link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.chapter-refresh {
-  padding: 0;
-  background: transparent;
-  color: inherit;
-  border: 0;
-  border-radius: var(--radius-sm);
-  font: inherit;
-  line-height: inherit;
-}
-.chapter-refresh:hover:not(:disabled) {
-  background: transparent;
-  color: var(--color-accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.chapter-refresh:disabled {
-  background: transparent;
-  color: var(--color-ink-2);
-  cursor: progress;
-  opacity: 0.75;
-}
+.mangaupdates-link { color: inherit; text-decoration: none; }
+.mangaupdates-link:hover { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }
+.mangaupdates-link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .update-status { display: block; margin-top: var(--space-1); font-size: var(--text-xs); color: var(--color-ink-2); }
 .update-status--up_to_date { color: var(--color-success); }
 .update-status--missing_chapters { color: var(--color-warning); }

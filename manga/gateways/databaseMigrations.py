@@ -11,6 +11,7 @@ class DatabaseMigrations:
             2: self.__version2To3,
             3: self.__version3To4,
             4: self.__version4To5,
+            5: self.__version5To6,
         }
         self.LATEST_DB_VERSION = max(self.conversions.keys()) + 1
 
@@ -95,4 +96,13 @@ class DatabaseMigrations:
         cur.execute("DROP TABLE anilist")
         cur.execute("ALTER TABLE anilist_temp RENAME TO anilist")
         cur.execute("PRAGMA user_version = 5")
+        conn.commit()
+
+    def __version5To6(self, conn: sqlite3.Connection):
+        self.logger.info("Executing migration version 5 -> 6")
+        query = """
+            ALTER TABLE mangaupd ADD mangaUpdatesUrl text;
+            PRAGMA user_version = 6;
+        """
+        conn.executescript(query)
         conn.commit()

@@ -11,6 +11,7 @@ export interface Series {
     latest_stored_chapter: number | null;
     mangaupdates_id: number | null;
     mangaupdates_latest_chapter: number | null;
+    mangaupdates_url: string | null;
     anilist_last_read: number | null;
     mangaupdates_status: 'up_to_date' | 'missing_chapters' | 'unavailable' | 'unknown';
     mangaupdates_status_reason: string | null;

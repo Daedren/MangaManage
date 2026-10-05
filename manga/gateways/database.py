@@ -90,6 +90,7 @@ class DatabaseGateway:
                 SELECT grouped.series, grouped.anilistId, grouped.last_updated,
                        grouped.latest_stored_chapter, mangaupd.mangaUpdatesId AS mangaupdates_id,
                        mangaupd.latestChapter AS mangaupdates_latest_chapter,
+                       mangaupd.mangaUpdatesUrl AS mangaupdates_url,
                        COALESCE({membership}, 0) AS quarantined
                 FROM grouped
                 LEFT JOIN mangaupd ON grouped.anilistId = mangaupd.anilistId
@@ -233,15 +234,18 @@ class DatabaseGateway:
             cur.execute(query, (mangaUpdatesId, anilistId))
             conn.commit()
 
-    def updateMangaUpdtLatestChapter(self, mangaUpdatesId: int, latestChapter: int):
+    def updateMangaUpdtLatestChapter(
+        self, mangaUpdatesId: int, latestChapter: int = None, mangaUpdatesUrl: str = None,
+    ):
         with self.__conn() as (conn, cur):
 
             query = """
             UPDATE mangaupd
-            SET latestChapter = ?
+            SET latestChapter = COALESCE(?, latestChapter),
+                mangaUpdatesUrl = COALESCE(mangaUpdatesUrl, ?)
             WHERE mangaUpdatesId = ?
             """
-            cur.execute(query, (latestChapter, mangaUpdatesId))
+            cur.execute(query, (latestChapter, mangaUpdatesUrl, mangaUpdatesId))
             conn.commit()
 
     def getAllSeriesWithLocalFiles(self) -> List[AnilistSeries]:
@@ -391,6 +395,7 @@ SELECT
     upd.anilistId,
     upd.mangaUpdatesId,
     upd.latestChapter,
+    upd.mangaUpdatesUrl,
     MAX(mng.creation_date) AS max_date
 FROM
     mangaupd upd
